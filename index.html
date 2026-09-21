@@ -1,0 +1,1250 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gabarita AI</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-database-compat.js"></script>  
+    <script>
+    let materiaParaRenomear = "";
+    let materiaParaApagar = "";
+        const firebaseConfig = {
+            apiKey: "AIzaSyAaDH9-mAKj8vE-L6AVVuOI84SuNh678u8",
+            authDomain: "gabarita-ai-d4ab8.firebaseapp.com",
+            databaseURL: "https://gabarita-ai-d4ab8-default-rtdb.firebaseio.com",
+            projectId: "gabarita-ai-d4ab8",
+            storageBucket: "gabarita-ai-d4ab8.firebasestorage.app",
+            messagingSenderId: "991910646567",
+            appId: "1:991910646567:web:fbb6be70c7c2d8f7e78f02"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
+               
+        function inserirSimbolo(simbolo){
+
+    const campo =
+        document.getElementById('enunciadoInput');
+
+    const inicio = campo.selectionStart;
+    const fim = campo.selectionEnd;
+
+    campo.value =
+        campo.value.substring(0, inicio)
+        + simbolo +
+        campo.value.substring(fim);
+
+    campo.focus();
+
+    campo.selectionStart =
+        campo.selectionEnd =
+        inicio + simbolo.length;
+}
+    </script>
+    
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+        :root{ --primary:#2563eb; --bg:#0f172a; --glass:rgba(30, 41, 59, 0.7); --glass-border:rgba(96, 165, 250, 0.3); --text:#ffffff; }
+        
+        #splashScreen{ position:fixed; inset:0; z-index:99999; display:flex; align-items:center; justify-content:center; flex-direction:column; background:radial-gradient(circle at top,#2563eb 0%,transparent 40%), radial-gradient(circle at bottom,#7c3aed 0%,transparent 40%), #0f172a; overflow:hidden; }
+        #splashScreen::before{ content:""; position:absolute; width:300px; height:300px; background:#2563eb; filter:blur(120px); opacity:.3; animation: pulse 4s infinite; }
+        .logo-splash{ width:140px; height:140px; border-radius:35px; background:linear-gradient(135deg,#2563eb,#8b5cf6); display:flex; align-items:center; justify-content:center; font-size:65px; color:white; box-shadow:0 20px 60px rgba(37,99,235,.5); animation: floatLogo 3s ease-in-out infinite; }
+        .title-splash{ margin-top:25px; font-size:52px; font-weight:700; background:linear-gradient(45deg,#60a5fa,#a78bfa); -webkit-background-clip:text; -webkit-text-fill-color:transparent; }
+        .subtitle-splash{ margin-top:10px; color:#cbd5e1; font-size:18px; text-align:center; }
+        .loading-container{ width:280px; height:10px; background:rgba(255,255,255,.1); border-radius:50px; overflow:hidden; margin-top:40px; }
+        .loading-bar{ height:100%; width:0%; background:linear-gradient(90deg,#3b82f6,#8b5cf6); animation: loading 3s linear forwards; }
+        .fade-out{ animation: fadeOut .8s forwards; }
+        @keyframes loading{ from{width:0%;} to{width:100%;} }
+        @keyframes floatLogo{ 0%,100%{transform:translateY(0);} 50%{transform:translateY(-12px);} }
+        @keyframes pulse{ 0%,100%{transform:scale(1);} 50%{transform:scale(1.2);} }
+        @keyframes fadeOut{ to{ opacity:0; visibility:hidden; } }
+
+        *{ margin:0; padding:0; box-sizing:border-box; }
+        body{ font-family:'Inter',sans-serif; min-height:100vh; display:flex; background:linear-gradient(135deg,#0f172a,#1e293b); color:var(--text); overflow:auto; }
+        .sidebar{ width:280px; padding:25px; backdrop-filter:blur(20px); background:rgba(15,23,42,.85); border-right:1px solid var(--glass-border); display:flex; flex-direction:column; position:relative; z-index:10; }
+        .sidebar h2{ font-size:40px; font-weight:700; text-align:center; margin-bottom:30px; background:linear-gradient(45deg,#60a5fa,#a78bfa); -webkit-background-clip:text; -webkit-text-fill-color:transparent; }
+        .main{ flex:1; padding:25px; overflow-y:auto; }
+        .card{ background: var(--glass); backdrop-filter:blur(10px); border:1px solid var(--glass-border); border-radius:20px; padding:25px; margin-bottom:20px; box-shadow:0 8px 32px rgba(0,0,0,0.3); }
+        h1{ font-size:34px; text-align:center; margin-bottom:20px; }
+        .btn{ border:none; width:100%; padding:13px; margin-bottom:12px; border-radius:14px; cursor:pointer; font-weight:600; color:white; background:linear-gradient(135deg,#3b82f6,#8b5cf6); transition:.3s; font-size: 20px; display:flex; align-items:center; gap:10px; justify-content:center; }
+        .btn-edit{ display:none !important;*/ /*foi pra ocultar o botão editar*/background:#d97706; border:none; color:white; padding:10px 14px; border-radius:12px; cursor:pointer; margin-right:8px; font-size:16px; }
+        .btn-del{ display:none !important;*/  /*foi pra ocultar o botão apagar*/background:#dc2626; border:none; color:white; padding:10px 14px; border-radius:12px; cursor:pointer; font-size:16px; }
+        .btn-secundario{
+    border:none;
+    width:100%;
+    padding:13px;
+    margin-bottom:12px;
+    border-radius:14px;
+    cursor:pointer;
+    font-weight:600;
+    color:white;
+    font-size:20px;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    gap:10px;
+         
+    background:linear-gradient(135deg,#0f766e,#14b8a6);
+    transition:.3s;
+}
+
+        .btn-secundario:hover{
+    transform:scale(1.02);
+}
+        .modal-overlay{ position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6); backdrop-filter:blur(5px); display:none; justify-content:center; align-items:center; z-index:1000; }
+        .modal-card{ background:#1e293b; border:1px solid #60a5fa; padding:30px; border-radius:20px; width:400px; text-align:center; color:white; }
+        .modal-btn{ padding:10px 20px; border-radius:10px; border:none; cursor:pointer; font-weight:bold; margin:5px; }
+        .fab{ position:fixed; right:30px; bottom:30px; width:70px; height:70px; border:none; border-radius:50%; color:white; font-size:40px; cursor:pointer; background:linear-gradient(135deg,#3b82f6,#8b5cf6) !important; box-shadow:0 15px 35px rgba(0,0,0,.5); z-index:999; display:flex; align-items:center; justify-content:center; padding:0; }
+        input, textarea, select{ width:100%; padding:14px; border-radius:14px; border:1px solid rgba(255,255,255,.1); background:rgba(30, 41, 59, 0.5); color:white; margin-bottom:12px; outline:none; }
+        .hidden{ display:none !important; }
+        .barra-container{
+
+    width:100%;
+    height:24px;
+
+    background:#334155;
+
+    border-radius:30px;
+
+    overflow:hidden;
+
+    margin-top:10px;
+}
+
+#barraAproveitamento{
+
+    width:0%;
+
+    height:100%;
+
+    background:linear-gradient(
+        90deg,
+        #22c55e,
+        #16a34a
+    );
+
+    transition:.6s;
+}
+
+#mensagemDesempenho{
+
+    text-align:center;
+
+    margin-top:12px;
+
+    font-size:18px;
+
+    font-weight:bold;
+}
+        .screen{ display:none; height:100%; }
+        .screen.active{ display:block; }
+        @media(max-width:900px){ body{ flex-direction:column; } .sidebar{ width:100%; padding:15px; } }
+        
+    .math-toolbar{
+    display:flex;
+    gap:6px;
+    overflow-x:auto;
+    padding-bottom:8px;
+    margin-bottom:10px;
+}
+
+.math-toolbar button{
+    min-width:50px;
+    height:40px;
+    border:none;
+    border-radius:8px;
+    background:#334155;
+    color:white;
+    font-size:18px;
+    cursor:pointer;
+    flex-shrink:0;
+}    
+
+       #latexModal table{
+    width:100%;
+    border-collapse:collapse;
+}
+
+#latexModal th,
+#latexModal td{
+    border:1px solid #475569;
+    padding:10px;
+    text-align:center;
+}
+
+#latexModal tr:nth-child(even){
+    background:rgba(255,255,255,0.05);
+}
+    </style>
+    
+  <link rel="stylesheet"
+href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css">
+
+<script defer
+src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js">
+</script>
+
+<script defer
+src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js">
+</script>  
+</head>
+
+<body>
+    <div id="splashScreen">
+        <div class="logo-splash"><i class="fas fa-graduation-cap"></i></div>
+        <div class="title-splash">Gabarita AI</div>
+        <div class="subtitle-splash">Método Prático Para Sua Aprovação</div>
+        <div class="loading-container"><div class="loading-bar"></div></div>
+    </div>
+
+    <div id="customModal" class="modal-overlay">
+        <div class="modal-card">
+            <h3 id="modalTitle">Atenção</h3>
+            <p id="modalMsg" style="margin:20px 0;"></p>
+            <div id="modalBtns"></div>
+        </div>
+    </div>
+
+    <div class="sidebar">
+        <h2><i class="fas fa-graduation-cap"></i> Gabarita AI</h2>
+        <div>
+            <button class="btn" onclick="openScreen('dashboard')"><i class="fas fa-chart-line"></i> Painel</button>
+            <button class="btn" onclick="openScreen('disciplinas')"><i class="fas fa-book"></i> Disciplinas</button>
+            <button class="btn" onclick="openScreen('questoes')"><i class="fas fa-question-circle"></i> Praticar</button>
+        </div>
+    </div>
+
+    <div class="main">
+        <div id="dashboard" class="screen active">
+            <h1><i class="fas fa-chart-pie"></i> Desempenho</h1>
+            <div id="painelDados" class="card">
+
+    <p>
+        📚 Matérias:
+        <span id="totalMaterias">0</span>
+    </p>
+
+    <p>
+        🏆 Acertos:
+        <span id="totalAcertos">0</span>
+    </p>
+
+    <p>
+        ❌ Erros:
+        <span id="totalErros">0</span>
+    </p>
+
+    <br>
+
+    <h3>Aproveitamento Geral</h3>
+    <div style="
+display:flex;
+align-items:center;
+gap:10px;
+margin-top:10px;
+">
+
+    <div class="barra-container" style="flex:1;">
+        <div id="barraAproveitamento"></div>
+    </div>
+
+    <span id="porcentagemAcertos"
+    style="
+    font-weight:bold;
+    font-size:18px;
+    min-width:55px;
+    text-align:right;
+    ">
+        0%
+    </span>
+
+</div>
+
+    <p id="mensagemDesempenho">
+        Comece a praticar! 📚
+    </p>
+
+    <button
+        class="btn"
+        style="background:#ef4444;margin-top:15px;"
+        onclick="confirmarAcao(
+            'Zerar?',
+            'Deseja apagar estatísticas?',
+            'resetarEstatisticas()'
+        )">
+
+        <i class="fas fa-trash"></i>
+        Zerar Estatísticas
+
+    </button>
+
+</div>
+        </div>
+
+        <div id="disciplinas" class="screen">
+            <h2>Gerenciamento</h2>
+            <div id="formAdd" class="card hidden">
+                <input type="hidden" id="editIndex" value="-1">
+                <input type="text" id="materiaInput" placeholder="Nome da Matéria">           
+                
+             <div class="math-toolbar">
+                 
+<button type="button" onclick="abrirGuiaLatex()">📘</button>
+
+<button type="button" onclick="inserirSimbolo('√')">√</button>
+<button type="button" onclick="inserirSimbolo('∛')">∛</button>
+    <button type="button" onclick="inserirSimbolo('⁰')">⁰</button>
+    <button type="button" onclick="inserirSimbolo('¹')">¹</button>
+    <button type="button" onclick="inserirSimbolo('²')">²</button>
+    <button type="button" onclick="inserirSimbolo('³')">³</button>
+    <button type="button" onclick="inserirSimbolo('⁴')">⁴</button>
+    <button type="button" onclick="inserirSimbolo('⁵')">⁵</button>
+    <button type="button" onclick="inserirSimbolo('⁶')">⁶</button>
+    <button type="button" onclick="inserirSimbolo('⁷')">⁷</button>
+    <button type="button" onclick="inserirSimbolo('⁸')">⁸</button>
+    <button type="button" onclick="inserirSimbolo('⁹')">⁹</button>
+<button type="button" onclick="inserirSimbolo('₀')">₀</button>
+<button type="button" onclick="inserirSimbolo('₁')">₁</button>
+<button type="button" onclick="inserirSimbolo('₂')">₂</button>
+<button type="button" onclick="inserirSimbolo('₃')">₃</button>
+<button type="button" onclick="inserirSimbolo('₄')">₄</button>
+<button type="button" onclick="inserirSimbolo('₅')">₅</button>
+<button type="button" onclick="inserirSimbolo('₆')">₆</button>
+<button type="button" onclick="inserirSimbolo('₇')">₇</button>
+<button type="button" onclick="inserirSimbolo('₈')">₈</button>
+<button type="button" onclick="inserirSimbolo('₉')">₉</button>
+    <button type="button" onclick="inserirSimbolo('±')">±</button>
+    <button type="button" onclick="inserirSimbolo('+')">+</button>
+    <button type="button" onclick="inserirSimbolo('-')">-</button>    
+    <button type="button" onclick="inserirSimbolo('÷')">÷</button>
+    <button type="button" onclick="inserirSimbolo('%')">%</button>
+    <button type="button" onclick="inserirSimbolo('°')">°</button>
+    <button type="button" onclick="inserirSimbolo('′')">′</button>
+    <button type="button" onclick="inserirSimbolo('″')">″</button>                    
+<button type="button" onclick="inserirSimbolo('×')">×</button>
+<button type="button" onclick="inserirSimbolo('ᵧ')">ᵧ</button>                  
+<button type="button" onclick="inserirSimbolo('ₐ')">ₐ</button>
+<button type="button" onclick="inserirSimbolo('ₑ')">ₑ</button>
+<button type="button" onclick="inserirSimbolo('ₙ')">ₙ</button>
+<button type="button" onclick="inserirSimbolo('ₖ')">ₖ</button>
+    <button type="button" onclick="inserirSimbolo('π')">π</button>
+    <button type="button" onclick="inserirSimbolo('∞')">∞</button>
+    <button type="button" onclick="inserirSimbolo('Δ')">Δ</button>
+    <button type="button" onclick="inserirSimbolo('θ')">θ</button>
+    <button type="button" onclick="inserirSimbolo('α')">α</button>
+    <button type="button" onclick="inserirSimbolo('β')">β</button>
+    <button type="button" onclick="inserirSimbolo('λ')">λ</button>                  
+<button type="button" onclick="inserirSimbolo('≤')">≤</button>
+<button type="button" onclick="inserirSimbolo('≥')">≥</button>
+<button type="button" onclick="inserirSimbolo('≠')">≠</button>
+<button type="button" onclick="inserirSimbolo('≈')">≈</button>
+<button type="button" onclick="inserirSimbolo('→')">→</button>
+<button type="button" onclick="inserirSimbolo('←')">←</button>
+<button type="button" onclick="inserirSimbolo('↔')">↔</button>
+    <button onclick="inserirSimbolo('∑(i=1→n) ')">∑</button>
+    <button onclick="inserirSimbolo('´f(x)= ')">'f(x)</button>
+    <button onclick="inserirSimbolo('∫(a→b) ')">∫</button>
+    <button onclick="inserirSimbolo('lim(x→∞) ')">lim</button>
+    <button onclick="inserirSimbolo('log() ')">log</button>
+    <button type="button" onclick="inserirSimbolo('∂')">∂</button>
+<button type="button" onclick="inserirSimbolo('∈')">∈</button>
+<button type="button" onclick="inserirSimbolo('∉')">∉</button>
+<button type="button" onclick="inserirSimbolo('⊂')">⊂</button>
+<button type="button" onclick="inserirSimbolo('⊃')">⊃</button>
+<button type="button" onclick="inserirSimbolo('∪')">∪</button>
+<button type="button" onclick="inserirSimbolo('∩')">∩</button>
+    <button type="button" onclick="inserirSimbolo('∠')">∠</button>
+    <button type="button" onclick="inserirSimbolo('⊥')">⊥</button>
+    <button type="button" onclick="inserirSimbolo('∥')">∥</button>
+    <button type="button" onclick="inserirSimbolo('ℝ')">ℝ</button>
+    <button type="button" onclick="inserirSimbolo('ℕ')">ℕ</button>
+    <button type="button" onclick="inserirSimbolo('ℤ')">ℤ</button>
+    <button type="button" onclick="inserirSimbolo('ℚ')">ℚ</button>
+    <button type="button" onclick="inserirSimbolo('μ')">μ</button>
+    <button type="button" onclick="inserirSimbolo('σ')">σ</button>
+    <button type="button" onclick="inserirSimbolo('ρ')">ρ</button>
+</div>
+
+<textarea id="enunciadoInput" placeholder="Enunciado"></textarea>         
+                <input type="text" id="op1" placeholder="A"><input type="text" id="op2" placeholder="B">
+                <input type="text" id="op3" placeholder="C"><input type="text" id="op4" placeholder="D">
+                <input type="text" id="op5" placeholder="E">
+                <select id="corretaSelect">
+                    <option value="0">Correta: A</option><option value="1">Correta: B</option>
+                    <option value="2">Correta: C</option><option value="3">Correta: D</option>
+                    <option value="4">Correta: E</option>
+                </select>
+                
+                <textarea
+    id="explicacaoInput"
+    placeholder="Justificativa da resposta (será exibida quando o aluno errar)">
+</textarea>
+              
+                <button class="btn" onclick="salvarQuestao()"><i class="fas fa-save"></i> Salvar</button>
+            </div>
+            <button class="fab" onclick="resetForm()">+</button>
+            <div id="listaDisciplinas"></div>
+        </div>
+
+        <div id="questoes" class="screen">
+            <h2>Praticar</h2>
+            <div id="menuMaterias"></div>
+            <div id="areaQuestao" class="hidden">
+                <button class="btn-secundario" onclick="openScreen('questoes')"><i class="fas fa-arrow-left"></i> Voltar ao Menu</button>
+                <div id="conteudoQuestao"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let questoesParaResponder = [];
+        let indiceAtual = 0;
+
+        window.addEventListener("load", () => {
+            // Listener unificado que forçará a atualização em todos os dispositivos
+            db.ref('bancoEstudos').on('value', (snapshot) => {
+                let data = snapshot.val();
+                // Forçamos o dado a ser um array puro
+                const banco = data ? (Array.isArray(data) ? data : Object.values(data)) : [];
+                localStorage.setItem('bancoEstudos', JSON.stringify(banco));
+                
+                atualizarContadores();
+                if(document.getElementById('disciplinas').classList.contains('active')) listarDisciplinasUnicas();
+                if(document.getElementById('questoes').classList.contains('active')) carregarMenuMaterias();
+                console.log("Banco sincronizado via Firebase:", banco);
+            });
+            setTimeout(() => { document.getElementById("splashScreen").classList.add("fade-out"); }, 3000);
+        });
+
+        function syncFirebase(banco) {
+    const bancoLimpo = Object.values(banco);
+
+    db.ref('bancoEstudos').set(bancoLimpo)
+        .then(() => {
+            localStorage.setItem(
+                "bancoEstudos",
+                JSON.stringify(bancoLimpo)
+            );
+            listarDisciplinasUnicas();
+            console.log("Firebase atualizado.");
+        })
+        .catch((erro) => {
+            console.error(erro);
+            alert("Erro ao atualizar o Firebase.");
+        });
+}
+        
+function atualizarContadores(){
+
+    const banco = JSON.parse(
+        localStorage.getItem(
+            'bancoEstudos'
+        ) || '[]'
+    );
+
+    const acertos = parseInt(
+        localStorage.getItem(
+            'acertos'
+        ) || 0
+    );
+
+    const erros = parseInt(
+        localStorage.getItem(
+            'erros'
+        ) || 0
+    );
+
+    const total = acertos + erros;
+
+    let porcentagem = 0;
+
+    if(total > 0){
+
+        porcentagem =
+            ((acertos / total) * 100)
+            .toFixed(1);
+    }
+
+    document.getElementById(
+        'totalMaterias'
+    ).innerText =
+        new Set(
+            banco.map(
+                q => q.materia
+            )
+        ).size;
+
+    document.getElementById(
+        'totalAcertos'
+    ).innerText = acertos;
+
+    document.getElementById(
+        'totalErros'
+    ).innerText = erros;
+
+    document.getElementById(
+        'porcentagemAcertos'
+    ).innerText =
+        porcentagem + "%";
+
+    document.getElementById(
+        'barraAproveitamento'
+    ).style.width =
+        porcentagem + "%";
+
+    let mensagem = "";
+
+    if(total === 0){
+
+        mensagem =
+          "Comece a praticar! 📚";
+    }
+
+    else if(porcentagem < 40){
+
+        mensagem =
+            "🔴 Precisa melhorar";
+    }
+
+    else if(porcentagem < 70){
+
+        mensagem =
+            "🟡 Bom desempenho";
+    }
+
+    else if(porcentagem < 90){
+
+        mensagem =
+            "🟢 Ótimo desempenho";
+    }
+
+    else{
+
+        mensagem =
+            "🏆 Excelente desempenho";
+    }
+
+    document.getElementById(
+        "mensagemDesempenho"
+    ).innerText =
+        mensagem;
+}
+
+        function resetForm() {
+            document.getElementById('editIndex').value = "-1";
+            document.getElementById('materiaInput').value = "";
+            document.getElementById('enunciadoInput').value = "";
+            document.getElementById('op1').value = ""; document.getElementById('op2').value = "";
+            document.getElementById('op3').value = ""; document.getElementById('op4').value = "";
+            document.getElementById('op5').value = "";
+            document.getElementById('formAdd').classList.remove('hidden');
+            document.getElementById("explicacaoInput").value = "";
+        }
+
+        function editarQuestao(index) {
+            const banco = JSON.parse(localStorage.getItem('bancoEstudos') || '[]');
+            const q = banco[index];
+document.getElementById('editIndex').value = index;
+document.getElementById('materiaInput').value = q.materia;
+document.getElementById('enunciadoInput').value = q.enunciado;
+document.getElementById('op1').value = q.opcoes[0] || "";
+document.getElementById('op2').value = q.opcoes[1] || "";
+document.getElementById('op3').value = q.opcoes[2] || "";
+document.getElementById('op4').value = q.opcoes[3] || "";
+document.getElementById('op5').value = q.opcoes[4] || "";
+document.getElementById('corretaSelect').value = q.correta;
+document.getElementById("explicacaoInput").value =
+    q.explicacao || "";
+document.getElementById('formAdd').classList.remove('hidden');
+        }
+
+        function salvarQuestao(){
+            const index = parseInt(document.getElementById('editIndex').value);
+            
+           const nova = {
+    materia: document.getElementById('materiaInput').value,
+    enunciado: document.getElementById('enunciadoInput').value,
+
+    opcoes: [
+        document.getElementById('op1').value,
+        document.getElementById('op2').value,
+        document.getElementById('op3').value,
+        document.getElementById('op4').value,
+        document.getElementById('op5').value
+    ].filter(op => op.trim() !== ""),
+
+    correta: document.getElementById('corretaSelect').value,
+    explicacao: document.getElementById('explicacaoInput').value
+    
+};
+            let banco = JSON.parse(localStorage.getItem('bancoEstudos') || '[]');
+            if(index > -1) banco[index] = nova; else banco.push(nova);
+            syncFirebase(banco);
+            document.getElementById('formAdd').classList.add('hidden');
+            
+        }
+
+        function openScreen(id){
+            document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+            document.getElementById(id).classList.add('active');
+            if(id === 'questoes') carregarMenuMaterias();
+            if(id === 'disciplinas') listarDisciplinasUnicas();
+        }
+
+        function listarDisciplinasUnicas(){
+            const banco = JSON.parse(localStorage.getItem('bancoEstudos') || '[]');
+            const lista = document.getElementById('listaDisciplinas');
+            lista.innerHTML = '';
+            
+            const materias = [...new Set(banco.map(q => q.materia))]
+    .sort((a, b) => a.localeCompare(b, 'pt-BR'));
+
+materias.forEach(materia => {
+    
+ lista.innerHTML += `
+<div class="card">
+
+    <button class="btn-secundario"
+    onclick="exibirQuestoesDaMateria('${materia}')">
+        ${materia}
+    </button>
+
+    <button
+    class="btn-edit"
+    onclick="renomearMateria('${materia}')">
+
+        <i class="fas fa-edit"></i>
+        Renomear
+
+    </button>
+    <button
+class="btn-del"
+onclick="apagarMateria('${materia}')">
+
+    <i class="fas fa-trash"></i>
+    Apagar
+
+</button>
+
+</div>
+`;   
+    
+});
+        }
+
+           function exibirQuestoesDaMateria(materia) {
+            const banco = JSON.parse(localStorage.getItem('bancoEstudos') || '[]');
+            const lista = document.getElementById('listaDisciplinas');
+            lista.innerHTML = `<button class="btn-secundario" onclick="listarDisciplinasUnicas()"><i class="fas fa-arrow-left"></i> Voltar</button><h3>${materia}</h3>`;
+            banco.forEach((q, idx) => {
+                if(q.materia === materia) {
+                    lista.innerHTML += `<div class="card"><p><strong>${q.enunciado}</strong></p>
+                    <button class="btn-edit" onclick="editarQuestao(${idx})">Editar</button>
+                    <button class="btn-del" onclick="deletarQuestao(${idx})">Apagar</button></div>`;
+                }
+                setTimeout(renderizarLatex, 100);
+            });
+        }
+
+        function deletarQuestao(index) { confirmarAcao('Excluir?', 'Tem certeza?', `executarDelecao(${index})`); }
+        function executarDelecao(index) {
+            let banco = JSON.parse(localStorage.getItem('bancoEstudos') || '[]');
+            banco.splice(index, 1);
+            syncFirebase(banco);
+        }
+
+        function confirmarAcao(titulo, msg, acao) {
+            document.getElementById('modalTitle').innerText = titulo;
+            document.getElementById('modalMsg').innerText = msg;
+            document.getElementById('modalBtns').innerHTML = `<button class="modal-btn" style="background:#ef4444;" onclick="fecharModal()">Não</button>              <button class="modal-btn" style="background:#22c55e;" onclick="${acao}; fecharModal();">Sim</button>`;
+            document.getElementById('customModal').style.display = 'flex';
+        }
+        function fecharModal() { document.getElementById('customModal').style.display = 'none'; }
+        function resetarEstatisticas(){
+
+    localStorage.setItem(
+        'acertos',
+        0
+    );
+
+    localStorage.setItem(
+        'erros',
+        0
+    );
+
+    atualizarContadores();
+}
+
+        function carregarMenuMaterias(){
+            const banco = JSON.parse(localStorage.getItem('bancoEstudos') || '[]');
+            const menu = document.getElementById('menuMaterias');
+            menu.classList.remove('hidden');
+            document.getElementById('areaQuestao').classList.add('hidden');
+            menu.innerHTML = '<h3>Selecione uma matéria:</h3>';
+            
+            
+       const materias = [...new Set(banco.map(q => q.materia))]
+    .sort((a, b) => a.localeCompare(b, 'pt-BR'));
+
+materias.forEach(m => {
+    menu.innerHTML += `
+        <button class="btn-secundario"
+        onclick="iniciarSessao('${m}')">
+            ${m}
+        </button>
+    `;
+});     
+        }
+
+        function iniciarSessao(materia) {
+            const banco = JSON.parse(localStorage.getItem('bancoEstudos') || '[]');
+            questoesParaResponder = banco.filter(q => q.materia === materia).sort(() => Math.random() - 0.5);
+            indiceAtual = 0;
+            document.getElementById('menuMaterias').classList.add('hidden');
+            renderizarQuestao();
+        }
+
+        function renderizarQuestao() {
+            const container = document.getElementById('conteudoQuestao');
+            document.getElementById('areaQuestao').classList.remove('hidden');
+            if (indiceAtual >= questoesParaResponder.length) {
+                container.innerHTML = `<h3>Sessão Finalizada!</h3><button class="btn-secundario" onclick="openScreen('questoes')">Voltar ao menu</button>`;
+                return;
+            }
+            const q = questoesParaResponder[indiceAtual];
+            container.innerHTML = `<h3>${q.materia} (${indiceAtual + 1}/${questoesParaResponder.length})</h3>
+                <div class="card"><p><strong>${q.enunciado}</strong></p>
+                
+                ${q.opcoes
+.filter(op => op.trim() !== "")
+.map((op, i) =>
+`<button class="btn opt-btn"
+style="background:#334155"
+onclick="verificar(this, ${i}, ${q.correta})">
+${op}
+</button>`
+).join('')}</div>
+                <div id="proxContainer"></div>`;
+                setTimeout(renderizarLatex, 100);
+        }
+
+        function verificar(btn, escolhida, correta){
+            const botoes = document.querySelectorAll('.opt-btn');
+            botoes.forEach(b => b.style.pointerEvents = 'none');
+            if(escolhida == correta) { localStorage.setItem('acertos', parseInt(localStorage.getItem('acertos') || 0) + 1); btn.style.background = "#22c55e"; }
+            else { localStorage.setItem('erros', parseInt(localStorage.getItem('erros') || 0) + 1); btn.style.background = "#ef4444"; botoes[correta].style.background = "#22c55e"; }
+            const q = questoesParaResponder[indiceAtual];
+            
+   let html = `
+<button
+class="btn"
+style="background:#6366f1"
+onclick="indiceAtual++; renderizarQuestao()">
+
+Próxima Questão
+
+</button>
+`;
+
+if(escolhida != correta){
+
+html += `
+
+<div class="card"
+style="
+margin-top:20px;
+background:#3f2a00;
+border-left:6px solid orange;
+">
+
+<h3>📚 Justificativa</h3>
+
+<p>
+
+${q.explicacao || "Nenhuma justificativa cadastrada."}
+
+</p>
+
+</div>
+
+`;
+
+}
+
+document.getElementById("proxContainer").innerHTML = html;
+
+atualizarContadores();
+}
+       function renderizarLatex() {
+
+    renderMathInElement(document.body, {
+
+        delimiters: [
+            {left: "$$", right: "$$", display: true},
+            {left: "$", right: "$", display: false}
+        ],
+
+        throwOnError: false
+    });
+
+} 
+        function abrirGuiaLatex(){
+    document.getElementById("latexModal").style.display = "flex";
+
+    setTimeout(() => {
+        renderMathInElement(
+            document.getElementById("latexModal"),
+            {
+                delimiters:[
+                    {left:"$", right:"$", display:false},
+                    {left:"$$", right:"$$", display:true}
+                ],
+                throwOnError:false
+            }
+        );
+    },100);
+}
+
+        function fecharGuiaLatex(){
+    document.getElementById("latexModal").style.display = "none";
+}
+
+        function renomearMateria(nomeAntigo){
+
+    materiaParaRenomear = nomeAntigo;
+
+    document.getElementById(
+        "novoNomeMateria"
+    ).value = nomeAntigo;
+
+    document.getElementById(
+        "modalRenomear"
+    ).style.display = "flex";
+}
+       function fecharModalRenomear(){
+
+    document.getElementById(
+        "modalRenomear"
+    ).style.display = "none";
+}
+
+      function confirmarRenomeacao(){
+
+    const novoNome =
+        document.getElementById(
+            "novoNomeMateria"
+        ).value.trim();
+
+    if(!novoNome) return;
+
+    let banco = JSON.parse(
+        localStorage.getItem(
+            "bancoEstudos"
+        ) || "[]"
+    );
+
+    banco.forEach(q => {
+
+        if(q.materia === materiaParaRenomear){
+
+            q.materia = novoNome;
+        }
+    });
+
+    syncFirebase(banco);
+
+    fecharModalRenomear();
+
+    listarDisciplinasUnicas();
+}
+  
+      function apagarMateria(nomeMateria) {
+    confirmarAcao(
+        "Apagar Matéria",
+        "Deseja apagar toda a matéria '" + nomeMateria + "'?",
+        "executarApagarMateria('" + nomeMateria + "')"
+    );
+}
+
+       function executarApagarMateria(nomeMateria) {
+    let banco = JSON.parse(localStorage.getItem("bancoEstudos") || "[]");
+    
+    // Remove todas as questões que pertencem a essa matéria
+    banco = banco.filter(q => q.materia !== nomeMateria);
+
+    // Salva a nova lista no Firebase e atualiza o localStorage
+    syncFirebase(banco);
+    
+    // Recarrega a lista na tela
+    listarDisciplinasUnicas();
+}
+
+function confirmarRenomeacao(){
+
+    const novoNome =
+        document.getElementById(
+            "novoNomeMateria"
+        ).value.trim();
+
+    if(!novoNome) return;
+
+    let banco = JSON.parse(
+        localStorage.getItem(
+            "bancoEstudos"
+        ) || "[]"
+    );
+
+    banco.forEach(q => {
+
+        if(q.materia === materiaParaRenomear){
+
+            q.materia = novoNome;
+        }
+    });
+
+    syncFirebase(banco);
+
+    fecharModalRenomear();
+
+    listarDisciplinasUnicas();
+}
+    </script>
+    <div id="latexModal" class="modal-overlay">
+
+<div class="modal-card"
+style="
+width:95%;
+max-width:1000px;
+max-height:85vh;
+overflow:auto;
+">
+
+<h2>📘 Guia Completo LaTeX</h2>
+
+<table style="
+width:100%;
+border-collapse:collapse;
+margin-top:15px;
+">
+
+<tr>
+<th style="border:1px solid #555;padding:8px;">Código</th>
+<th style="border:1px solid #555;padding:8px;">Resultado</th>
+</tr>
+
+<tr>
+<td><code>$x^n$</code></td>
+<td>$x^n$</td>
+</tr>
+
+<tr>
+<td><code>$x_n$</code></td>
+<td>$x_n$</td>
+</tr>
+
+<tr>
+<td><code>$\frac{a}{b}$</code></td>
+<td>$\frac{a}{b}$</td>
+</tr>
+
+<tr>
+<td><code>$\frac{a+b}{c+d}$</code></td>
+<td>$\frac{a+b}{c+d}$</td>
+</tr>
+
+<tr>
+<td><code>$\sqrt{x}$</code></td>
+<td>$\sqrt{x}$</td>
+</tr>
+
+<tr>
+<td><code>$\sqrt[n]{x}$</code></td>
+<td>$\sqrt[n]{x}$</td>
+</tr>
+
+<tr>
+<td><code>$\pi$</code></td>
+<td>$\pi$</td>
+</tr>
+
+<tr>
+<td><code>$\alpha$</code></td>
+<td>$\alpha$</td>
+</tr>
+
+<tr>
+<td><code>$\beta$</code></td>
+<td>$\beta$</td>
+</tr>
+
+<tr>
+<td><code>$\theta$</code></td>
+<td>$\theta$</td>
+</tr>
+
+<tr>
+<td><code>$\lambda$</code></td>
+<td>$\lambda$</td>
+</tr>
+
+<tr>
+<td><code>$\mu$</code></td>
+<td>$\mu$</td>
+</tr>
+
+<tr>
+<td><code>$\sigma$</code></td>
+<td>$\sigma$</td>
+</tr>
+
+<tr>
+<td><code>$x \neq y$</code></td>
+<td>$x \neq y$</td>
+</tr>
+
+<tr>
+<td><code>$a \le b$</code></td>
+<td>$a \le b$</td>
+</tr>
+
+<tr>
+<td><code>$a \ge b$</code></td>
+<td>$a \ge b$</td>
+</tr>
+
+<tr>
+<td><code>$a \approx b$</code></td>
+<td>$a \approx b$</td>
+</tr>
+
+<tr>
+<td><code>$\models$</code></td>
+<td>$\models$</td>
+</tr>
+
+<tr>
+<td><code>$\equiv$</code></td>
+<td>$\equiv$</td>
+</tr>
+
+<tr>
+<td><code>$\vdash$</code></td>
+<td>$\vdash$</td>
+</tr>
+
+<tr>
+<td><code>$p \rightarrow q$</code></td>
+<td>$p \rightarrow q$</td>
+</tr>
+
+<tr>
+<td><code>$p \leftrightarrow q$</code></td>
+<td>$p \leftrightarrow q$</td>
+</tr>
+
+<tr>
+<td><code>$p \land q$</code></td>
+<td>$p \land q$</td>
+</tr>
+
+<tr>
+<td><code>$p \lor q$</code></td>
+<td>$p \lor q$</td>
+</tr>
+
+<tr>
+<td><code>$p \veebar q$</code></td>
+<td>$p \veebar q$</td>
+</tr>
+
+<tr>
+<td><code>$p \oplus q$</code></td>
+<td>$p \oplus q$</td>
+</tr>
+
+<tr>
+<td><code>$\forall$</code></td>
+<td>$\forall$</td>
+</tr>
+
+<tr>
+    <td><code>$\exists$</code></td>
+    <td>$\exists$</td>
+</tr>
+
+<tr>
+<td><code>$\subseteq$</code></td>
+<td>$\subseteq$</td>
+</tr>
+
+<tr>
+<td><code>$\top$</code></td>
+<td>$\top$</td>
+</tr>
+
+<tr>
+<td><code>$\bot$</code></td>
+<td>$\bot$</td>
+</tr>
+
+<tr>
+<td><code>$ \neg p$</code></td>
+<td>$ \neg p$</td>
+</tr>
+    
+<tr>
+<td><code>$ \neg q$</code></td>
+<td>$ \neg q$</td>
+</tr>
+
+<tr>
+<td><code>$\sum_{i=1}^{n}$</code></td>
+<td>$\sum_{i=1}^{n}$</td>
+</tr>
+
+<tr>
+<td><code>$\int_a^b$</code></td>
+<td>$\int_a^b$</td>
+</tr>
+
+<tr>
+<td><code>$\lim_{x\to\infty}$</code></td>
+<td>$\lim_{x\to\infty}$</td>
+</tr>
+
+<tr>
+<td><code>$90^\circ$</code></td>
+<td>$90^\circ$</td>
+</tr>
+
+<tr>
+<td><code>$A \cup B$</code></td>
+<td>$A \cup B$</td>
+</tr>
+
+<tr>
+<td><code>$A \cap B$</code></td>
+<td>$A \cap B$</td>
+</tr>
+
+<tr>
+<td><code>$x \in A$</code></td>
+<td>$x \in A$</td>
+</tr>
+
+<tr>
+<td><code>$x \notin A$</code></td>
+<td>$x \notin A$</td>
+</tr>
+
+<tr>
+<td><code>$A \subset B$</code></td>
+<td>$A \subset B$</td>
+</tr>
+
+<tr>
+<td><code>$\angle ABC$</code></td>
+<td>$\angle ABC$</td>
+</tr>
+
+<tr>
+<td><code>$AB \parallel CD$</code></td>
+<td>$AB \parallel CD$</td>
+</tr>
+
+<tr>
+<td><code>$AB \perp CD$</code></td>
+<td>$AB \perp CD$</td>
+</tr>
+
+<tr>
+<td><code>$\mathbb{N}$</code></td>
+<td>$\mathbb{N}$</td>
+</tr>
+
+<tr>
+<td><code>$\mathbb{Z}$</code></td>
+<td>$\mathbb{Z}$</td>
+</tr>
+
+<tr>
+<td><code>$\mathbb{Q}$</code></td>
+<td>$\mathbb{Q}$</td>
+</tr>
+
+<tr>
+<td><code>$\mathbb{R}$</code></td>
+<td>$\mathbb{R}$</td>
+</tr>
+
+<tr>
+<td><code>$\mathbb{I}$</code></td>
+<td>$\mathbb{I}$</td>
+</tr>
+
+<tr>
+<td><code>$\begin{bmatrix} a & b \\ c & d \end{bmatrix}$</code></td>
+<td class="latex-render">
+        $\begin{bmatrix} a & b \\ c & d \end{bmatrix}$</td>
+</tr>
+
+<tr>
+<td><code>$\begin{bmatrix} a & b & c \\ d & e & f \\ g & h & i \end{bmatrix}$</code></td>
+<td class="latex-render">
+        $\begin{bmatrix} a & b & c \\ d & e & f \\ g & h & i \end{bmatrix}$</td>
+</tr>
+
+<tr>
+<td><code>$\det(A)$</code></td>
+<td class="latex-render">$\det(A)$</td>
+</tr>
+
+<tr>
+<td><code>$A^{-1}$</code></td>
+<td class="latex-render">$A^{-1}$</td>
+</tr>
+
+<tr>
+<td><code>$A^T$</code></td>
+<td class="latex-render">$A^T$</td>
+</tr>
+</table>
+
+<button class="btn"
+onclick="fecharGuiaLatex()">
+Fechar
+</button>
+
+</div>
+</div>
+<div id="modalRenomear" class="modal-overlay">
+    <div class="modal-card">
+        <h3>✏️ Renomear Matéria</h3>
+
+        <input
+            type="text"
+            id="novoNomeMateria"
+            placeholder="Digite o novo nome">
+
+        <div style="margin-top:15px;">
+            <button
+                class="modal-btn"
+                style="background:#ef4444"
+                onclick="fecharModalRenomear()">
+                Cancelar
+            </button>
+
+            <button
+                class="modal-btn"
+                style="background:#22c55e"
+                onclick="confirmarRenomeacao()">
+                Salvar
+            </button>
+        </div>
+    </div>
+</div>
+</body>
+</html>
+ 
