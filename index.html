@@ -69,8 +69,8 @@
         .card{ background: var(--glass); backdrop-filter:blur(10px); border:1px solid var(--glass-border); border-radius:20px; padding:25px; margin-bottom:20px; box-shadow:0 8px 32px rgba(0,0,0,0.3); }
         h1{ font-size:34px; text-align:center; margin-bottom:20px; }
         .btn{ border:none; width:100%; padding:13px; margin-bottom:12px; border-radius:14px; cursor:pointer; font-weight:600; color:white; background:linear-gradient(135deg,#3b82f6,#8b5cf6); transition:.3s; font-size: 20px; display:flex; align-items:center; gap:10px; justify-content:center; }
-        .btn-edit{ display:none !important;*/ /*foi pra ocultar o botão editar*/background:#d97706; border:none; color:white; padding:10px 14px; border-radius:12px; cursor:pointer; margin-right:8px; font-size:16px; }
-        .btn-del{ display:none !important;*/  /*foi pra ocultar o botão apagar*/background:#dc2626; border:none; color:white; padding:10px 14px; border-radius:12px; cursor:pointer; font-size:16px; }
+        .btn-edit{/* display:none !important;*/ /*foi pra ocultar o botão editar*/background:#d97706; border:none; color:white; padding:10px 14px; border-radius:12px; cursor:pointer; margin-right:8px; font-size:16px; }
+        .btn-del{/* display:none !important;*/  /*foi pra ocultar o botão apagar*/background:#dc2626; border:none; color:white; padding:10px 14px; border-radius:12px; cursor:pointer; font-size:16px; }
         .btn-secundario{
     border:none;
     width:100%;
@@ -368,9 +368,26 @@ margin-top:10px;
 </div>
 
 <textarea id="enunciadoInput" placeholder="Enunciado"></textarea>         
-                <input type="text" id="op1" placeholder="A"><input type="text" id="op2" placeholder="B">
-                <input type="text" id="op3" placeholder="C"><input type="text" id="op4" placeholder="D">
-                <input type="text" id="op5" placeholder="E">
+                <div class="alternativa-item">
+                    <span class="letra-alternativa">a)</span>
+                    <input type="text" id="op1" placeholder="Alternativa A">
+                </div>
+                <div class="alternativa-item">
+                    <span class="letra-alternativa">b)</span>
+                    <input type="text" id="op2" placeholder="Alternativa B">
+                </div>
+                <div class="alternativa-item">
+                    <span class="letra-alternativa">c)</span>
+                    <input type="text" id="op3" placeholder="Alternativa C">
+                </div>
+                <div class="alternativa-item">
+                    <span class="letra-alternativa">d)</span>
+                    <input type="text" id="op4" placeholder="Alternativa D">
+                </div>
+                <div class="alternativa-item">
+                    <span class="letra-alternativa">e)</span>
+                    <input type="text" id="op5" placeholder="Alternativa E"> 
+                </div>
                 <select id="corretaSelect">
                     <option value="0">Correta: A</option><option value="1">Correta: B</option>
                     <option value="2">Correta: C</option><option value="3">Correta: D</option>
@@ -539,6 +556,7 @@ function atualizarContadores(){
             document.getElementById('op1').value = ""; document.getElementById('op2').value = "";
             document.getElementById('op3').value = ""; document.getElementById('op4').value = "";
             document.getElementById('op5').value = "";
+            document.getElementById('corretaSelect').value = "0";
             document.getElementById('formAdd').classList.remove('hidden');
             document.getElementById("explicacaoInput").value = "";
         }
@@ -549,11 +567,12 @@ function atualizarContadores(){
 document.getElementById('editIndex').value = index;
 document.getElementById('materiaInput').value = q.materia;
 document.getElementById('enunciadoInput').value = q.enunciado;
-document.getElementById('op1').value = q.opcoes[0] || "";
-document.getElementById('op2').value = q.opcoes[1] || "";
-document.getElementById('op3').value = q.opcoes[2] || "";
-document.getElementById('op4').value = q.opcoes[3] || "";
-document.getElementById('op5').value = q.opcoes[4] || "";
+const opcoesEdit = Array.isArray(q.opcoes) ? q.opcoes : [];
+document.getElementById('op1').value = opcoesEdit[0] || "";
+document.getElementById('op2').value = opcoesEdit[1] || "";
+document.getElementById('op3').value = opcoesEdit[2] || "";
+document.getElementById('op4').value = opcoesEdit[3] || "";
+document.getElementById('op5').value = opcoesEdit[4] || "";
 document.getElementById('corretaSelect').value = q.correta;
 document.getElementById("explicacaoInput").value =
     q.explicacao || "";
@@ -568,17 +587,29 @@ document.getElementById('formAdd').classList.remove('hidden');
     enunciado: document.getElementById('enunciadoInput').value,
 
     opcoes: [
-        document.getElementById('op1').value,
-        document.getElementById('op2').value,
-        document.getElementById('op3').value,
-        document.getElementById('op4').value,
-        document.getElementById('op5').value
-    ].filter(op => op.trim() !== ""),
+        document.getElementById('op1').value.trim(),
+        document.getElementById('op2').value.trim(),
+        document.getElementById('op3').value.trim(),
+        document.getElementById('op4').value.trim(),
+        document.getElementById('op5').value.trim()
+    ],
 
     correta: document.getElementById('corretaSelect').value,
     explicacao: document.getElementById('explicacaoInput').value
     
 };
+
+            // Se a alternativa marcada como correta estiver vazia,
+            // usa automaticamente a primeira alternativa preenchida.
+            const opcoesValidas = nova.opcoes;
+            const corretaAtual = parseInt(nova.correta);
+            if(!opcoesValidas[corretaAtual]){
+                const primeiraPreenchida = opcoesValidas.findIndex(op => op.trim() !== "");
+                if(primeiraPreenchida >= 0){
+                    nova.correta = String(primeiraPreenchida);
+                }
+            }
+
             let banco = JSON.parse(localStorage.getItem('bancoEstudos') || '[]');
             if(index > -1) banco[index] = nova; else banco.push(nova);
             syncFirebase(banco);
@@ -638,14 +669,29 @@ onclick="apagarMateria('${materia}')">
             const banco = JSON.parse(localStorage.getItem('bancoEstudos') || '[]');
             const lista = document.getElementById('listaDisciplinas');
             lista.innerHTML = `<button class="btn-secundario" onclick="listarDisciplinasUnicas()"><i class="fas fa-arrow-left"></i> Voltar</button><h3>${materia}</h3>`;
+            let numeroQuestao = 0;
             banco.forEach((q, idx) => {
                 if(q.materia === materia) {
-                    lista.innerHTML += `<div class="card"><p><strong>${q.enunciado}</strong></p>
-                    <button class="btn-edit" onclick="editarQuestao(${idx})">Editar</button>
-                    <button class="btn-del" onclick="deletarQuestao(${idx})">Apagar</button></div>`;
+                    numeroQuestao++;
+                    const opcoes = Array.isArray(q.opcoes) ? q.opcoes : [];
+                    const letras = ['a','b','c','d','e'];
+                    const alternativasHtml = opcoes.map((op, i) => {
+                        const texto = (op || '').trim();
+                        if(!texto) return '';
+                        return `<div class="alternativa-exibida" style="margin:8px 0;">
+                            <strong>${letras[i]})</strong> ${texto}
+                        </div>`;
+                    }).join('');
+
+                    lista.innerHTML += `<div class="card">
+                        <p><strong>${numeroQuestao}. ${q.enunciado}</strong></p>
+                        ${alternativasHtml}
+                        <button class="btn-edit" onclick="editarQuestao(${idx})">Editar</button>
+                        <button class="btn-del" onclick="deletarQuestao(${idx})">Apagar</button>
+                    </div>`;
                 }
-                setTimeout(renderizarLatex, 100);
             });
+            setTimeout(renderizarLatex, 100);
         }
 
         function deletarQuestao(index) { confirmarAcao('Excluir?', 'Tem certeza?', `executarDelecao(${index})`); }
@@ -700,7 +746,40 @@ materias.forEach(m => {
 
         function iniciarSessao(materia) {
             const banco = JSON.parse(localStorage.getItem('bancoEstudos') || '[]');
-            questoesParaResponder = banco.filter(q => q.materia === materia).sort(() => Math.random() - 0.5);
+
+            // Mantém o número original de cada questão e cria uma sequência
+            // aleatória sem repetir questões. A primeira começa pela questão 1
+            // e, depois dela, a próxima nunca será a questão imediatamente seguinte.
+            const filtradas = banco
+                .map((q, indiceBanco) => ({ ...q, _indiceBanco: indiceBanco }))
+                .filter(q => q.materia === materia)
+                .map((q, indiceMateria) => ({ ...q, _numeroOriginal: indiceMateria + 1 }));
+
+            questoesParaResponder = [];
+            let restantes = [...filtradas];
+
+            if (restantes.length > 0) {
+                // Começa pela questão nº 1.
+                const primeira = restantes.findIndex(q => q._numeroOriginal === 1);
+                if (primeira >= 0) {
+                    questoesParaResponder.push(restantes.splice(primeira, 1)[0]);
+                }
+            }
+
+            while (restantes.length > 0) {
+                const anterior = questoesParaResponder[questoesParaResponder.length - 1];
+                const numeroProibido = anterior._numeroOriginal + 1;
+
+                // Não permite a questão imediatamente seguinte à anterior.
+                // Se só houver essa opção restante, usa-a para não travar a sessão.
+                let candidatos = restantes.filter(q => q._numeroOriginal !== numeroProibido);
+                if (candidatos.length === 0) candidatos = restantes;
+
+                const escolhida = candidatos[Math.floor(Math.random() * candidatos.length)];
+                const posicao = restantes.indexOf(escolhida);
+                questoesParaResponder.push(restantes.splice(posicao, 1)[0]);
+            }
+
             indiceAtual = 0;
             document.getElementById('menuMaterias').classList.add('hidden');
             renderizarQuestao();
@@ -709,32 +788,57 @@ materias.forEach(m => {
         function renderizarQuestao() {
             const container = document.getElementById('conteudoQuestao');
             document.getElementById('areaQuestao').classList.remove('hidden');
+
             if (indiceAtual >= questoesParaResponder.length) {
                 container.innerHTML = `<h3>Sessão Finalizada!</h3><button class="btn-secundario" onclick="openScreen('questoes')">Voltar ao menu</button>`;
                 return;
             }
+
             const q = questoesParaResponder[indiceAtual];
+            const letras = ['a','b','c','d','e'];
+            const opcoes = Array.isArray(q.opcoes) ? q.opcoes : [];
+
+            const alternativas = opcoes
+                .map((op, i) => ({
+                    texto: (op || '').trim(),
+                    indice: i
+                }))
+                .filter(item => item.texto !== '');
+
             container.innerHTML = `<h3>${q.materia} (${indiceAtual + 1}/${questoesParaResponder.length})</h3>
-                <div class="card"><p><strong>${q.enunciado}</strong></p>
-                
-                ${q.opcoes
-.filter(op => op.trim() !== "")
-.map((op, i) =>
-`<button class="btn opt-btn"
-style="background:#334155"
-onclick="verificar(this, ${i}, ${q.correta})">
-${op}
-</button>`
-).join('')}</div>
+                <div class="card">
+                    <p><strong>${q._numeroOriginal || (indiceAtual + 1)}. ${q.enunciado}</strong></p>
+
+                    ${alternativas.map(item => `
+                        <button class="btn opt-btn"
+                            style="background:#334155; text-align:left; justify-content:flex-start"
+                            data-indice-opcao="${item.indice}"
+                            onclick="verificar(this, ${item.indice}, ${q.correta})">
+                            <strong style="min-width:22px;">${letras[item.indice]})</strong>
+                            <span>${item.texto}</span>
+                        </button>
+                    `).join('')}
+                </div>
                 <div id="proxContainer"></div>`;
-                setTimeout(renderizarLatex, 100);
+
+            setTimeout(renderizarLatex, 100);
         }
 
         function verificar(btn, escolhida, correta){
             const botoes = document.querySelectorAll('.opt-btn');
             botoes.forEach(b => b.style.pointerEvents = 'none');
             if(escolhida == correta) { localStorage.setItem('acertos', parseInt(localStorage.getItem('acertos') || 0) + 1); btn.style.background = "#22c55e"; }
-            else { localStorage.setItem('erros', parseInt(localStorage.getItem('erros') || 0) + 1); btn.style.background = "#ef4444"; botoes[correta].style.background = "#22c55e"; }
+            else {
+                localStorage.setItem('erros', parseInt(localStorage.getItem('erros') || 0) + 1);
+                btn.style.background = "#ef4444";
+                const botoesCorreta = document.querySelectorAll('.opt-btn');
+                botoesCorreta.forEach(b => {
+                    const indiceBotao = b.getAttribute('data-indice-opcao');
+                    if(String(indiceBotao) === String(correta)){
+                        b.style.background = "#22c55e";
+                    }
+                });
+            }
             const q = questoesParaResponder[indiceAtual];
             
    let html = `
