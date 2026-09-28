@@ -10,6 +10,8 @@
     <script src="https://www.gstatic.com/firebasejs/9.15.0/firebase-database-compat.js"></script>  
     <script>
     let materiaParaRenomear = "";
+let subtituloParaRenomear = "";
+let acaoConfirmada = "";
     let materiaParaApagar = "";
         const firebaseConfig = {
             apiKey: "AIzaSyAaDH9-mAKj8vE-L6AVVuOI84SuNh678u8",
@@ -747,72 +749,96 @@ document.getElementById('formAdd').classList.remove('hidden');
             const banco = JSON.parse(localStorage.getItem('bancoEstudos') || '[]');
             const lista = document.getElementById('listaDisciplinas');
             lista.innerHTML = '';
-            
-            const materias = [...new Set(banco.map(q => q.materia))]
-    .sort((a, b) => a.localeCompare(b, 'pt-BR'));
 
-materias.forEach(materia => {
-    
- lista.innerHTML += `
-<div class="card">
+            // Cada combinação MATÉRIA + SUBTÍTULO é um grupo independente.
+            // Assim, questões com o mesmo título e subtítulo ficam juntas,
+            // enquanto subtítulos diferentes ficam em grupos separados.
+            const grupos = [];
+            const chaves = new Set();
 
-    <button class="btn-secundario materia-com-subtitulo"
-    onclick="exibirQuestoesDaMateria('${materia}')">
-        <span class="materia-titulo">${materia}</span>
-        ${(() => {
-            const subs = [...new Set(banco.filter(q => q.materia === materia).map(q => (q.subtitulo || '').trim()).filter(Boolean))];
-            return subs.length ? `<span class="materia-subtitulo">${subs.join(' • ')}</span>` : '';
-        })()}
-    </button>
+            banco.forEach(q => {
+                const materia = (q.materia || '').trim();
+                const subtitulo = (q.subtitulo || '').trim();
+                if(!materia) return;
 
-    <button
-    class="btn-edit"
-    onclick="renomearMateria('${materia}')">
+                const chave = materia.toLocaleLowerCase('pt-BR') + '||' + subtitulo.toLocaleLowerCase('pt-BR');
+                if(!chaves.has(chave)){
+                    chaves.add(chave);
+                    grupos.push({ materia, subtitulo });
+                }
+            });
 
-        <i class="fas fa-edit"></i>
-        Renomear
+            grupos.sort((a,b) => {
+                const materiaCmp = a.materia.localeCompare(b.materia, 'pt-BR');
+                if(materiaCmp !== 0) return materiaCmp;
+                return a.subtitulo.localeCompare(b.subtitulo, 'pt-BR');
+            });
 
-    </button>
-    <button
-class="btn-del"
-onclick="apagarMateria('${materia}')">
+            grupos.forEach(grupo => {
+                const materiaJS = JSON.stringify(grupo.materia);
+                const subtituloJS = JSON.stringify(grupo.subtitulo);
+                const subtituloHtml = grupo.subtitulo
+                    ? `<span class="materia-subtitulo">${grupo.subtitulo}</span>`
+                    : '';
 
-    <i class="fas fa-trash"></i>
-    Apagar
+                lista.innerHTML += `
+                <div class="card">
+                    <button class="btn-secundario materia-com-subtitulo"
+                        onclick='exibirQuestoesDoGrupo(${materiaJS}, ${subtituloJS})'>
+                        <span class="materia-titulo">${grupo.materia}</span>
+                        ${subtituloHtml}
+                    </button>
 
-</button>
+                    <button class="btn-edit"
+                        onclick='renomearGrupo(${materiaJS}, ${subtituloJS})'>
+                        <i class="fas fa-edit"></i>
+                        Renomear
+                    </button>
 
-</div>
-`;   
-    
-});
+                    <button class="btn-del"
+                        onclick='apagarGrupo(${materiaJS}, ${subtituloJS})'>
+                        <i class="fas fa-trash"></i>
+                        Apagar
+                    </button>
+                </div>`;
+            });
         }
 
-           function exibirQuestoesDaMateria(materia) {
+        function exibirQuestoesDoGrupo(materia, subtitulo){
             const banco = JSON.parse(localStorage.getItem('bancoEstudos') || '[]');
             const lista = document.getElementById('listaDisciplinas');
-            lista.innerHTML = `<button class="btn-secundario" onclick="listarDisciplinasUnicas()"><i class="fas fa-arrow-left"></i> Voltar</button><h3>${materia}</h3>`;
-            let numeroQuestao = 0;
-            banco.forEach((q, idx) => {
-                if(q.materia === materia) {
-                    numeroQuestao++;
-                    const opcoes = Array.isArray(q.opcoes) ? q.opcoes : [];
-                    const letras = ['a','b','c','d','e'];
-                    const alternativasHtml = opcoes.map((op, i) => {
-                        const texto = (op || '').trim();
-                        if(!texto) return '';
-                        return `<div class="alternativa-exibida" style="margin:8px 0;">
-                            <strong>${letras[i]})</strong> ${texto}
-                        </div>`;
-                    }).join('');
+            const grupo = banco.filter(q =>
+                (q.materia || '').trim() === materia &&
+                (q.subtitulo || '').trim() === subtitulo
+            );
 
-                    lista.innerHTML += `<div class="card">
-                        <p><strong>${numeroQuestao}. ${q.enunciado}</strong></p>
-                        ${alternativasHtml}
-                        <button class="btn-edit" onclick="editarQuestao(${idx})">Editar</button>
-                        <button class="btn-del" onclick="deletarQuestao(${idx})">Apagar</button>
+            lista.innerHTML = `
+                <button class="btn-secundario" onclick="listarDisciplinasUnicas()">
+                    <i class="fas fa-arrow-left"></i> Voltar
+                </button>
+                <div class="card" style="text-align:center;">
+                    <h3>${materia}</h3>
+                    ${subtitulo ? `<div class="materia-subtitulo" style="font-size:17px;margin-top:6px;">${subtitulo}</div>` : ''}
+                </div>`;
+
+            grupo.forEach(q => {
+                const idx = banco.indexOf(q);
+                const opcoes = Array.isArray(q.opcoes) ? q.opcoes : [];
+                const letras = ['a','b','c','d','e'];
+                const alternativasHtml = opcoes.map((op, i) => {
+                    const texto = (op || '').trim();
+                    if(!texto) return '';
+                    return `<div class="alternativa-exibida" style="margin:8px 0;">
+                        <strong>${letras[i]})</strong> ${texto}
                     </div>`;
-                }
+                }).join('');
+
+                lista.innerHTML += `<div class="card">
+                    <p><strong>${grupo.indexOf(q) + 1}. ${q.enunciado}</strong></p>
+                    ${alternativasHtml}
+                    <button class="btn-edit" onclick="editarQuestao(${idx})">Editar</button>
+                    <button class="btn-del" onclick="deletarQuestao(${idx})">Apagar</button>
+                </div>`;
             });
             setTimeout(renderizarLatex, 100);
         }
@@ -825,12 +851,25 @@ onclick="apagarMateria('${materia}')">
         }
 
         function confirmarAcao(titulo, msg, acao) {
+            acaoConfirmada = acao || '';
             document.getElementById('modalTitle').innerText = titulo;
             document.getElementById('modalMsg').innerText = msg;
-            document.getElementById('modalBtns').innerHTML = `<button class="modal-btn" style="background:#ef4444;" onclick="fecharModal()">Não</button>              <button class="modal-btn" style="background:#22c55e;" onclick="${acao}; fecharModal();">Sim</button>`;
+            document.getElementById('modalBtns').innerHTML = `<button class="modal-btn" style="background:#ef4444;" onclick="fecharModal()">Não</button>              <button class="modal-btn" style="background:#22c55e;" onclick="executarAcaoConfirmada()">Sim</button>`;
             document.getElementById('customModal').style.display = 'flex';
         }
-        function fecharModal() { document.getElementById('customModal').style.display = 'none'; }
+        function executarAcaoConfirmada() {
+            const acao = acaoConfirmada;
+            acaoConfirmada = '';
+            fecharModal();
+            if(acao) {
+                try { Function(acao)(); }
+                catch(erro) { console.error('Erro na ação confirmada:', erro); }
+            }
+        }
+        function fecharModal() {
+            document.getElementById('customModal').style.display = 'none';
+            acaoConfirmada = '';
+        }
         function resetarEstatisticas(){
 
     localStorage.setItem(
@@ -852,32 +891,47 @@ onclick="apagarMateria('${materia}')">
             menu.classList.remove('hidden');
             document.getElementById('areaQuestao').classList.add('hidden');
             menu.innerHTML = '<h3>Selecione uma matéria:</h3>';
-            
-            
-       const materias = [...new Set(banco.map(q => q.materia))]
-    .sort((a, b) => a.localeCompare(b, 'pt-BR'));
 
-materias.forEach(m => {
-    const subtitulos = [...new Set(
-        banco.filter(q => q.materia === m)
-            .map(q => (q.subtitulo || '').trim())
-            .filter(Boolean)
-    )];
-    const subtituloHtml = subtitulos.length
-        ? `<span class="materia-subtitulo">${subtitulos.join(' • ')}</span>`
-        : '';
+            // No modo de prática, cada combinação matéria + subtítulo
+            // representa uma página/sessão de exercícios independente.
+            const grupos = [];
+            const chaves = new Set();
 
-    menu.innerHTML += `
-        <button class="btn-secundario materia-com-subtitulo"
-        onclick="iniciarSessao('${m}')">
-            <span class="materia-titulo">${m}</span>
-            ${subtituloHtml}
-        </button>
-    `;
-});     
+            banco.forEach(q => {
+                const materia = (q.materia || '').trim();
+                const subtitulo = (q.subtitulo || '').trim();
+                if(!materia) return;
+
+                const chave = materia.toLocaleLowerCase('pt-BR') + '||' + subtitulo.toLocaleLowerCase('pt-BR');
+                if(!chaves.has(chave)){
+                    chaves.add(chave);
+                    grupos.push({ materia, subtitulo });
+                }
+            });
+
+            grupos.sort((a,b) => {
+                const materiaCmp = a.materia.localeCompare(b.materia, 'pt-BR');
+                if(materiaCmp !== 0) return materiaCmp;
+                return a.subtitulo.localeCompare(b.subtitulo, 'pt-BR');
+            });
+
+            grupos.forEach(grupo => {
+                const materiaJS = JSON.stringify(grupo.materia);
+                const subtituloJS = JSON.stringify(grupo.subtitulo);
+                const subtituloHtml = grupo.subtitulo
+                    ? `<span class="materia-subtitulo">${grupo.subtitulo}</span>`
+                    : '';
+
+                menu.innerHTML += `
+                    <button class="btn-secundario materia-com-subtitulo"
+                        onclick='iniciarSessao(${materiaJS}, ${subtituloJS})'>
+                        <span class="materia-titulo">${grupo.materia}</span>
+                        ${subtituloHtml}
+                    </button>`;
+            });
         }
 
-        function iniciarSessao(materia) {
+                function iniciarSessao(materia, subtitulo = "") {
             const banco = JSON.parse(localStorage.getItem('bancoEstudos') || '[]');
 
             // Mantém o número original de cada questão e cria uma sequência
@@ -885,7 +939,7 @@ materias.forEach(m => {
             // e, depois dela, a próxima nunca será a questão imediatamente seguinte.
             const filtradas = banco
                 .map((q, indiceBanco) => ({ ...q, _indiceBanco: indiceBanco }))
-                .filter(q => q.materia === materia)
+                .filter(q => (q.materia || '').trim() === materia && (q.subtitulo || '').trim() === subtitulo)
                 .map((q, indiceMateria) => ({ ...q, _numeroOriginal: indiceMateria + 1 }));
 
             questoesParaResponder = [];
@@ -1048,105 +1102,75 @@ atualizarContadores();
     document.getElementById("latexModal").style.display = "none";
 }
 
+        function renomearGrupo(materiaAntiga, subtituloAntigo){
+            materiaParaRenomear = materiaAntiga;
+            subtituloParaRenomear = subtituloAntigo || '';
+
+            document.getElementById('novoNomeMateria').value = materiaAntiga;
+            document.getElementById('novoSubtituloMateria').value = subtituloAntigo || '';
+            document.getElementById('modalRenomear').style.display = 'flex';
+        }
+
+        // Mantém compatibilidade com chamadas antigas.
         function renomearMateria(nomeAntigo){
-
-    materiaParaRenomear = nomeAntigo;
-
-    document.getElementById(
-        "novoNomeMateria"
-    ).value = nomeAntigo;
-
-    document.getElementById(
-        "modalRenomear"
-    ).style.display = "flex";
-}
-       function fecharModalRenomear(){
-
-    document.getElementById(
-        "modalRenomear"
-    ).style.display = "none";
-}
-
-      function confirmarRenomeacao(){
-
-    const novoNome =
-        document.getElementById(
-            "novoNomeMateria"
-        ).value.trim();
-
-    if(!novoNome) return;
-
-    let banco = JSON.parse(
-        localStorage.getItem(
-            "bancoEstudos"
-        ) || "[]"
-    );
-
-    banco.forEach(q => {
-
-        if(q.materia === materiaParaRenomear){
-
-            q.materia = novoNome;
+            renomearGrupo(nomeAntigo, '');
         }
-    });
 
-    syncFirebase(banco);
-
-    fecharModalRenomear();
-
-    listarDisciplinasUnicas();
-}
-  
-      function apagarMateria(nomeMateria) {
-    confirmarAcao(
-        "Apagar Matéria",
-        "Deseja apagar toda a matéria '" + nomeMateria + "'?",
-        "executarApagarMateria('" + nomeMateria + "')"
-    );
-}
-
-       function executarApagarMateria(nomeMateria) {
-    let banco = JSON.parse(localStorage.getItem("bancoEstudos") || "[]");
-    
-    // Remove todas as questões que pertencem a essa matéria
-    banco = banco.filter(q => q.materia !== nomeMateria);
-
-    // Salva a nova lista no Firebase e atualiza o localStorage
-    syncFirebase(banco);
-    
-    // Recarrega a lista na tela
-    listarDisciplinasUnicas();
-}
-
-function confirmarRenomeacao(){
-
-    const novoNome =
-        document.getElementById(
-            "novoNomeMateria"
-        ).value.trim();
-
-    if(!novoNome) return;
-
-    let banco = JSON.parse(
-        localStorage.getItem(
-            "bancoEstudos"
-        ) || "[]"
-    );
-
-    banco.forEach(q => {
-
-        if(q.materia === materiaParaRenomear){
-
-            q.materia = novoNome;
+        function fecharModalRenomear(){
+            document.getElementById('modalRenomear').style.display = 'none';
         }
-    });
 
-    syncFirebase(banco);
+        function confirmarRenomeacao(){
+            const novoNome = document.getElementById('novoNomeMateria').value.trim();
+            const novoSubtitulo = document.getElementById('novoSubtituloMateria').value.trim();
 
-    fecharModalRenomear();
+            if(!novoNome) return;
 
-    listarDisciplinasUnicas();
-}
+            let banco = JSON.parse(localStorage.getItem('bancoEstudos') || '[]');
+
+            banco.forEach(q => {
+                const mesmaMateria = (q.materia || '').trim() === materiaParaRenomear;
+                const mesmoSubtitulo = (q.subtitulo || '').trim() === (subtituloParaRenomear || '');
+
+                if(mesmaMateria && mesmoSubtitulo){
+                    q.materia = novoNome;
+                    q.subtitulo = novoSubtitulo;
+                }
+            });
+
+            syncFirebase(banco);
+            fecharModalRenomear();
+            listarDisciplinasUnicas();
+        }
+
+        function apagarGrupo(materia, subtitulo){
+            const descricao = subtitulo ? materia + ' — ' + subtitulo : materia;
+            confirmarAcao(
+                'Apagar grupo',
+                "Deseja apagar todas as questões de '" + descricao + "'?",
+                "executarApagarGrupo(" + JSON.stringify(materia) + ", " + JSON.stringify(subtitulo || '') + ")"
+            );
+        }
+
+        function executarApagarGrupo(materia, subtitulo){
+            let banco = JSON.parse(localStorage.getItem('bancoEstudos') || '[]');
+            banco = banco.filter(q => !(
+                (q.materia || '').trim() === materia &&
+                (q.subtitulo || '').trim() === (subtitulo || '')
+            ));
+            syncFirebase(banco);
+            listarDisciplinasUnicas();
+        }
+
+        // Mantém compatibilidade com a função antiga.
+        function apagarMateria(nomeMateria) {
+            apagarGrupo(nomeMateria, '');
+        }
+
+        function executarApagarMateria(nomeMateria) {
+            executarApagarGrupo(nomeMateria, '');
+        }
+
     </script>
     <div id="latexModal" class="modal-overlay">
 
@@ -1463,7 +1487,12 @@ Fechar
         <input
             type="text"
             id="novoNomeMateria"
-            placeholder="Digite o novo nome">
+            placeholder="Novo nome da matéria">
+
+        <input
+            type="text"
+            id="novoSubtituloMateria"
+            placeholder="Novo subtítulo / tema (opcional)">
 
         <div style="margin-top:15px;">
             <button
