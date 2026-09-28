@@ -95,6 +95,24 @@
         .btn-secundario:hover{
     transform:scale(1.02);
 }
+
+        .materia-com-subtitulo{
+            flex-direction:column;
+            gap:4px;
+            text-align:center;
+            line-height:1.15;
+        }
+        .materia-titulo{
+            display:block;
+            font-size:20px;
+            font-weight:700;
+        }
+        .materia-subtitulo{
+            display:block;
+            font-size:14px;
+            font-weight:500;
+            opacity:.92;
+        }
         .modal-overlay{ position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6); backdrop-filter:blur(5px); display:none; justify-content:center; align-items:center; z-index:1000; }
         .modal-card{ background:#1e293b; border:1px solid #60a5fa; padding:30px; border-radius:20px; width:400px; text-align:center; color:white; }
         .modal-btn{ padding:10px 20px; border-radius:10px; border:none; cursor:pointer; font-weight:bold; margin:5px; }
@@ -291,7 +309,8 @@ margin-top:10px;
             <h2>Gerenciamento</h2>
             <div id="formAdd" class="card hidden">
                 <input type="hidden" id="editIndex" value="-1">
-                <input type="text" id="materiaInput" placeholder="Nome da Matéria">           
+                <input type="text" id="materiaInput" placeholder="Nome da Matéria">
+                <input type="text" id="subtituloInput" placeholder="Subtítulo / Tema (opcional)">           
                 
              <div class="math-toolbar">
                  
@@ -406,6 +425,11 @@ margin-top:10px;
                 <button class="btn" onclick="salvarQuestao()"><i class="fas fa-save"></i> Salvar</button>
             </div>
             <button class="fab" onclick="resetForm()">+</button>
+            <div class="import-export-questoes" style="display:flex;gap:10px;flex-wrap:wrap;margin:15px 0;justify-content:center;">
+                <button class="btn-secundario" onclick="exportarQuestoes()"><i class="fas fa-download"></i> Baixar questões</button>
+                <button class="btn-secundario" onclick="document.getElementById('arquivoQuestoes').click()"><i class="fas fa-upload"></i> Importar questões</button>
+                <input type="file" id="arquivoQuestoes" accept=".json,application/json" style="display:none" onchange="importarQuestoes(event)">
+            </div>
             <div id="listaDisciplinas"></div>
         </div>
 
@@ -438,6 +462,94 @@ margin-top:10px;
             });
             setTimeout(() => { document.getElementById("splashScreen").classList.add("fade-out"); }, 3000);
         });
+
+
+        // Exporta as questões deste aparelho em um arquivo JSON.
+        // O arquivo pode ser enviado para outro usuário e importado na versão normal ou privada.
+        function exportarQuestoes(){
+            const banco = JSON.parse(localStorage.getItem('bancoEstudos') || '[]');
+            if(!banco.length){
+                alert('Não há questões salvas para baixar.');
+                return;
+            }
+            const dados = {
+                app: 'Gabarita AI',
+                tipo: 'bancoEstudos',
+                versao: 1,
+                criadoEm: new Date().toISOString(),
+                questoes: banco
+            };
+            const blob = new Blob([JSON.stringify(dados, null, 2)], {type:'application/json'});
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            const data = new Date().toISOString().slice(0,10);
+            a.href = url;
+            a.download = 'GabaritaAI_questoes_' + data + '.json';
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            URL.revokeObjectURL(url);
+        }
+
+        function importarQuestoes(event){
+            const arquivo = event.target.files && event.target.files[0];
+            if(!arquivo) return;
+            const leitor = new FileReader();
+            leitor.onload = function(e){
+                try{
+                    const dados = JSON.parse(e.target.result);
+                    let importadas = Array.isArray(dados) ? dados : dados.questoes;
+                    if(!Array.isArray(importadas)) throw new Error('Formato inválido');
+
+                    importadas = importadas.filter(q => q && typeof q === 'object' &&
+                        typeof q.materia === 'string' && typeof q.enunciado === 'string');
+
+                    if(!importadas.length){
+                        alert('O arquivo não contém questões válidas.');
+                        return;
+                    }
+
+                    let banco = JSON.parse(localStorage.getItem('bancoEstudos') || '[]');
+                    let adicionadas = 0;
+
+                    importadas.forEach(q => {
+                        const nova = {
+                            materia: q.materia.trim(),
+                            subtitulo: (q.subtitulo || '').toString().trim(),
+                            enunciado: q.enunciado,
+                            opcoes: Array.isArray(q.opcoes) ? [0,1,2,3,4].map(i => (q.opcoes[i] || '').toString()) : ['', '', '', '', ''],
+                            correta: String(q.correta ?? '0'),
+                            explicacao: q.explicacao || ''
+                        };
+
+                        const duplicada = banco.some(x =>
+                            (x.materia || '').trim() === nova.materia &&
+                            (x.enunciado || '').trim() === nova.enunciado.trim()
+                        );
+
+                        if(!duplicada){
+                            banco.push(nova);
+                            adicionadas++;
+                        }
+                    });
+
+                    // Normal: syncFirebase envia para o Firebase.
+                    // Privado: syncFirebase mantém tudo somente no dispositivo.
+                    syncFirebase(banco);
+                    listarDisciplinasUnicas();
+                    carregarMenuMaterias();
+                    atualizarContadores();
+                    alert(adicionadas + ' questão(ões) importada(s).\n' +
+                          (importadas.length - adicionadas) + ' já existia(m) e não foi(ram) duplicada(s).');
+                }catch(erro){
+                    console.error(erro);
+                    alert('Não foi possível importar este arquivo. Use um arquivo .json gerado pelo Gabarita AI.');
+                }finally{
+                    event.target.value = '';
+                }
+            };
+            leitor.readAsText(arquivo);
+        }
 
         function syncFirebase(banco) {
     const bancoLimpo = Object.values(banco);
@@ -556,6 +668,7 @@ function atualizarContadores(){
         function resetForm() {
             document.getElementById('editIndex').value = "-1";
             document.getElementById('materiaInput').value = "";
+            document.getElementById('subtituloInput').value = "";
             document.getElementById('enunciadoInput').value = "";
             document.getElementById('op1').value = ""; document.getElementById('op2').value = "";
             document.getElementById('op3').value = ""; document.getElementById('op4').value = "";
@@ -570,7 +683,8 @@ function atualizarContadores(){
             const q = banco[index];
 document.getElementById('editIndex').value = index;
 document.getElementById('materiaInput').value = q.materia;
-document.getElementById('enunciadoInput').value = q.enunciado;
+            document.getElementById('subtituloInput').value = q.subtitulo || "";
+            document.getElementById('enunciadoInput').value = q.enunciado;
 const opcoesEdit = Array.isArray(q.opcoes) ? q.opcoes : [];
 document.getElementById('op1').value = opcoesEdit[0] || "";
 document.getElementById('op2').value = opcoesEdit[1] || "";
@@ -588,6 +702,7 @@ document.getElementById('formAdd').classList.remove('hidden');
             
            const nova = {
     materia: document.getElementById('materiaInput').value,
+    subtitulo: document.getElementById('subtituloInput').value.trim(),
     enunciado: document.getElementById('enunciadoInput').value,
 
     opcoes: [
@@ -641,9 +756,13 @@ materias.forEach(materia => {
  lista.innerHTML += `
 <div class="card">
 
-    <button class="btn-secundario"
+    <button class="btn-secundario materia-com-subtitulo"
     onclick="exibirQuestoesDaMateria('${materia}')">
-        ${materia}
+        <span class="materia-titulo">${materia}</span>
+        ${(() => {
+            const subs = [...new Set(banco.filter(q => q.materia === materia).map(q => (q.subtitulo || '').trim()).filter(Boolean))];
+            return subs.length ? `<span class="materia-subtitulo">${subs.join(' • ')}</span>` : '';
+        })()}
     </button>
 
     <button
@@ -739,10 +858,20 @@ onclick="apagarMateria('${materia}')">
     .sort((a, b) => a.localeCompare(b, 'pt-BR'));
 
 materias.forEach(m => {
+    const subtitulos = [...new Set(
+        banco.filter(q => q.materia === m)
+            .map(q => (q.subtitulo || '').trim())
+            .filter(Boolean)
+    )];
+    const subtituloHtml = subtitulos.length
+        ? `<span class="materia-subtitulo">${subtitulos.join(' • ')}</span>`
+        : '';
+
     menu.innerHTML += `
-        <button class="btn-secundario"
+        <button class="btn-secundario materia-com-subtitulo"
         onclick="iniciarSessao('${m}')">
-            ${m}
+            <span class="materia-titulo">${m}</span>
+            ${subtituloHtml}
         </button>
     `;
 });     
