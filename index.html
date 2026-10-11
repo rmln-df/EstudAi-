@@ -74,7 +74,7 @@ let acaoConfirmada = "";
         h1{ font-size:34px; text-align:center; margin-bottom:20px; }
         .btn{ border:none; width:100%; padding:13px; margin-bottom:12px; border-radius:14px; cursor:pointer; font-weight:600; color:white; background:linear-gradient(135deg,#3b82f6,#8b5cf6); transition:.3s; font-size: 20px; display:flex; align-items:center; gap:10px; justify-content:center; }
         .btn-edit{/* display:none !important;*/ /*foi pra ocultar o botão editar*/background:#d97706; border:none; color:white; padding:10px 14px; border-radius:12px; cursor:pointer; margin-right:8px; font-size:16px; }
-        .btn-del{ display:none !important;  /*foi pra ocultar o botão apagar*/background:#dc2626; border:none; color:white; padding:10px 14px; border-radius:12px; cursor:pointer; font-size:16px; }
+        .btn-del{/* display:none !important;*/  /*foi pra ocultar o botão apagar*/background:#dc2626; border:none; color:white; padding:10px 14px; border-radius:12px; cursor:pointer; font-size:16px; }
         .btn-secundario{
     border:none;
     width:100%;
@@ -97,6 +97,28 @@ let acaoConfirmada = "";
         .btn-secundario:hover{
     transform:scale(1.02);
 }
+
+        /* Cores personalizadas dos botões de exportação e importação */
+        .btn-baixar-questoes{
+            background:linear-gradient(135deg,#ca8a04,#eab308) !important;
+            color:#422006 !important;
+            border:1px solid rgba(255,255,255,.18);
+            box-shadow:0 5px 16px rgba(234,179,8,.22);
+        }
+        .btn-baixar-questoes:hover{
+            background:linear-gradient(135deg,#eab308,#facc15) !important;
+            box-shadow:0 7px 20px rgba(234,179,8,.32);
+        }
+        .btn-importar-questoes{
+            background:linear-gradient(135deg,#65a30d,#a3e635) !important;
+            color:#17210a !important;
+            border:1px solid rgba(255,255,255,.18);
+            box-shadow:0 5px 16px rgba(163,230,53,.2);
+        }
+        .btn-importar-questoes:hover{
+            background:linear-gradient(135deg,#84cc16,#bef264) !important;
+            box-shadow:0 7px 20px rgba(163,230,53,.3);
+        }
 
         .materia-com-subtitulo{
             flex-direction:column;
@@ -428,8 +450,8 @@ margin-top:10px;
             </div>
             <button class="fab" onclick="resetForm()">+</button>
             <div class="import-export-questoes" style="display:flex;gap:10px;flex-wrap:wrap;margin:15px 0;justify-content:center;">
-                <button class="btn-secundario" onclick="exportarQuestoes()"><i class="fas fa-download"></i> Baixar questões</button>
-                <button class="btn-secundario" onclick="document.getElementById('arquivoQuestoes').click()"><i class="fas fa-upload"></i> Importar questões</button>
+                <button class="btn-secundario btn-baixar-questoes" onclick="exportarQuestoes()"><i class="fas fa-download"></i> Baixar questões</button>
+                <button class="btn-secundario btn-importar-questoes" onclick="document.getElementById('arquivoQuestoes').click()"><i class="fas fa-upload"></i> Importar questões</button>
                 <input type="file" id="arquivoQuestoes" accept=".json,application/json" style="display:none" onchange="importarQuestoes(event)">
             </div>
             <div id="listaDisciplinas"></div>
@@ -449,78 +471,21 @@ margin-top:10px;
         let questoesParaResponder = [];
         let indiceAtual = 0;
 
-        const CHAVE_SYNC_PENDENTE = 'gabarita_sync_pendente';
-        let firebaseConectado = false;
-        let aplicandoBancoFirebase = false;
-
         window.addEventListener("load", () => {
-            // Mantém o banco local intacto quando existem alterações aguardando internet.
-            db.ref('.info/connected').on('value', (snapshot) => {
-                firebaseConectado = snapshot.val() === true;
-                if (firebaseConectado && localStorage.getItem(CHAVE_SYNC_PENDENTE) === '1') {
-                    sincronizarBancoPendente();
-                }
-            });
-
+            // Listener unificado que forçará a atualização em todos os dispositivos
             db.ref('bancoEstudos').on('value', (snapshot) => {
-                const pendente = localStorage.getItem(CHAVE_SYNC_PENDENTE) === '1';
-                const data = snapshot.val();
-                const bancoRemoto = data ? (Array.isArray(data) ? data : Object.values(data)) : [];
-
-                // Não deixar um retorno do Firebase apagar questões criadas offline.
-                if (pendente) {
-                    if (firebaseConectado) sincronizarBancoPendente();
-                    return;
-                }
-
-                aplicandoBancoFirebase = true;
-                localStorage.setItem('bancoEstudos', JSON.stringify(bancoRemoto));
-                aplicandoBancoFirebase = false;
+                let data = snapshot.val();
+                // Forçamos o dado a ser um array puro
+                const banco = data ? (Array.isArray(data) ? data : Object.values(data)) : [];
+                localStorage.setItem('bancoEstudos', JSON.stringify(banco));
+                
                 atualizarContadores();
                 if(document.getElementById('disciplinas').classList.contains('active')) listarDisciplinasUnicas();
                 if(document.getElementById('questoes').classList.contains('active')) carregarMenuMaterias();
-                console.log('Banco sincronizado via Firebase:', bancoRemoto);
-            });
-
-            window.addEventListener('online', () => {
-                if (localStorage.getItem(CHAVE_SYNC_PENDENTE) === '1') sincronizarBancoPendente();
+                console.log("Banco sincronizado via Firebase:", banco);
             });
             setTimeout(() => { document.getElementById("splashScreen").classList.add("fade-out"); }, 3000);
         });
-
-        // Identifica a questão pela matéria, subtítulo e enunciado para evitar duplicatas.
-        function chaveQuestao(q) {
-            return [q.materia || '', q.subtitulo || '', q.enunciado || '']
-                .map(v => String(v).trim().toLocaleLowerCase())
-                .join('\u001f');
-        }
-
-        // Quando a internet voltar, combina o banco remoto com o local e envia o resultado.
-        // As questões locais prevalecem em caso de mesmo identificador.
-        async function sincronizarBancoPendente() {
-            if (!firebaseConectado || localStorage.getItem(CHAVE_SYNC_PENDENTE) !== '1') return;
-            try {
-                const snapshot = await db.ref('bancoEstudos').once('value');
-                const data = snapshot.val();
-                const remoto = data ? (Array.isArray(data) ? data : Object.values(data)) : [];
-                let local = [];
-                try { local = JSON.parse(localStorage.getItem('bancoEstudos') || '[]'); } catch(e) {}
-                const mapa = new Map();
-                remoto.forEach(q => { if (q && typeof q === 'object') mapa.set(chaveQuestao(q), q); });
-                local.forEach(q => { if (q && typeof q === 'object') mapa.set(chaveQuestao(q), q); });
-                const combinado = Array.from(mapa.values());
-                await db.ref('bancoEstudos').set(combinado);
-                localStorage.setItem('bancoEstudos', JSON.stringify(combinado));
-                localStorage.removeItem(CHAVE_SYNC_PENDENTE);
-                atualizarContadores();
-                if(document.getElementById('disciplinas').classList.contains('active')) listarDisciplinasUnicas();
-                if(document.getElementById('questoes').classList.contains('active')) carregarMenuMaterias();
-                console.log('Questões pendentes sincronizadas com o Firebase:', combinado.length);
-            } catch (erro) {
-                // Não apaga a fila: ela será tentada novamente na próxima conexão.
-                console.warn('Sincronização pendente; será tentada novamente quando houver conexão.', erro);
-            }
-        }
 
 
         // Exporta as questões deste aparelho em um arquivo JSON.
@@ -611,20 +576,22 @@ margin-top:10px;
         }
 
         function syncFirebase(banco) {
-            const bancoLimpo = Object.values(banco || []);
-            // Salva primeiro neste aparelho: funciona mesmo sem internet e após fechar o app.
-            localStorage.setItem('bancoEstudos', JSON.stringify(bancoLimpo));
-            localStorage.setItem(CHAVE_SYNC_PENDENTE, '1');
-            atualizarContadores();
-            listarDisciplinasUnicas();
-            if (document.getElementById('questoes').classList.contains('active')) carregarMenuMaterias();
+    const bancoLimpo = Object.values(banco);
 
-            if (navigator.onLine && firebaseConectado) {
-                sincronizarBancoPendente();
-            } else {
-                console.log('Questões salvas neste aparelho; aguardando conexão para sincronizar.');
-            }
-        }
+    db.ref('bancoEstudos').set(bancoLimpo)
+        .then(() => {
+            localStorage.setItem(
+                "bancoEstudos",
+                JSON.stringify(bancoLimpo)
+            );
+            listarDisciplinasUnicas();
+            console.log("Firebase atualizado.");
+        })
+        .catch((erro) => {
+            console.error(erro);
+            alert("Erro ao atualizar o Firebase.");
+        });
+}
         
 function atualizarContadores(){
 
