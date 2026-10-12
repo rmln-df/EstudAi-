@@ -274,7 +274,7 @@ src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js">
     <div class="sidebar">
         <h2><i class="fas fa-graduation-cap"></i> EstudAí</h2>
         <div>
-            <button class="btn" onclick="openScreen('dashboard')"><i class="fas fa-chart-line"></i> Desempenho</button>
+            <button class="btn" onclick="openScreen('dashboard')"><i class="fas fa-chart-line"></i> Painel</button>
             <button class="btn" onclick="openScreen('disciplinas')"><i class="fas fa-book"></i> Disciplinas</button>
             <button class="btn" onclick="openScreen('questoes')"><i class="fas fa-question-circle"></i> Praticar</button>
         </div>
@@ -480,7 +480,7 @@ margin-top:10px;
             <h2>Praticar</h2>
             <div id="menuMaterias"></div>
             <div id="areaQuestao" class="hidden">
-                <button class="btn-secundario" onclick="openScreen('questoes')"><i class="fas fa-arrow-left"></i> Voltar ao Menu</button>
+                <button class="btn-secundario" onclick="voltarParaMenuAnterior()"><i class="fas fa-arrow-left"></i> Voltar ao Menu</button>
                 <div id="conteudoQuestao"></div>
             </div>
         </div>
@@ -489,6 +489,8 @@ margin-top:10px;
     <script>
         let questoesParaResponder = [];
         let indiceAtual = 0;
+        let materiaAtualPratica = '';
+
 
         window.addEventListener("load", () => {
             // Listener unificado que forçará a atualização em todos os dispositivos
@@ -997,6 +999,7 @@ document.getElementById('formAdd').classList.remove('hidden');
 
         // Segunda camada: subtítulos/temas pertencentes ao título selecionado.
         function mostrarSubtitulosPratica(materia){
+            materiaAtualPratica = materia;
             const banco = JSON.parse(localStorage.getItem('bancoEstudos') || '[]');
             const menu = document.getElementById('menuMaterias');
             menu.classList.remove('hidden');
@@ -1028,7 +1031,16 @@ document.getElementById('formAdd').classList.remove('hidden');
             });
         }
 
-                function iniciarSessao(materia, subtitulo = "") {
+        function voltarParaMenuAnterior(){
+            if(materiaAtualPratica){
+                mostrarSubtitulosPratica(materiaAtualPratica);
+            }else{
+                carregarMenuMaterias();
+            }
+        }
+
+        function iniciarSessao(materia, subtitulo = "") {
+            materiaAtualPratica = materia;
             const banco = JSON.parse(localStorage.getItem('bancoEstudos') || '[]');
 
             // Mantém o número original de cada questão e cria uma sequência
