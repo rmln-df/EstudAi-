@@ -73,6 +73,11 @@ let acaoConfirmada = "";
         .card{ background: var(--glass); backdrop-filter:blur(10px); border:1px solid var(--glass-border); border-radius:20px; padding:25px; margin-bottom:20px; box-shadow:0 8px 32px rgba(0,0,0,0.3); }
         h1{ font-size:34px; text-align:center; margin-bottom:20px; }
         .btn{ border:none; width:100%; padding:13px; margin-bottom:12px; border-radius:14px; cursor:pointer; font-weight:600; color:white; background:linear-gradient(135deg,#3b82f6,#8b5cf6); transition:.3s; font-size: 20px; display:flex; align-items:center; gap:10px; justify-content:center; }
+        .btn-proxima-questao{
+            background:linear-gradient(135deg,#65a30d,#a3e635) !important;
+            color:#17210a !important;
+        }
+        .btn-proxima-questao:hover{filter:brightness(1.06);transform:translateY(-1px);}
         .btn-edit{/* display:none !important;*/ /*foi pra ocultar o botão editar*/background:#d97706; border:none; color:white; padding:10px 14px; border-radius:12px; cursor:pointer; margin-right:8px; font-size:16px; }
         .btn-del{/* display:none !important;*/  /*foi pra ocultar o botão apagar*/background:#dc2626; border:none; color:white; padding:10px 14px; border-radius:12px; cursor:pointer; font-size:16px; }
         .btn-secundario{
@@ -119,6 +124,19 @@ let acaoConfirmada = "";
             background:linear-gradient(135deg,#84cc16,#bef264) !important;
             box-shadow:0 7px 20px rgba(163,230,53,.3);
         }
+
+        .pratica-cabecalho{margin:18px 0 14px;font-size:22px;color:#e2e8f0;}
+        .pratica-instrucao{color:#cbd5e1;margin:0 0 16px;}
+        .pratica-pasta,.pratica-subpasta{display:flex;align-items:center;justify-content:flex-start;text-align:left;gap:14px;padding:16px;margin:10px 0;background:linear-gradient(135deg,rgba(30,64,175,.92),rgba(79,70,229,.9));border:1px solid rgba(147,197,253,.3);}
+        .pratica-subpasta{background:linear-gradient(135deg,rgba(6,95,70,.92),rgba(13,148,136,.9));}
+        .pratica-icone-pasta,.pratica-icone-subpasta{display:flex;align-items:center;justify-content:center;flex:0 0 44px;height:44px;border-radius:12px;background:rgba(255,255,255,.13);font-size:22px;}
+        .pratica-pasta-texto{display:flex;flex:1;min-width:0;flex-direction:column;gap:5px;}
+        .pratica-pasta-texto .materia-titulo{font-size:18px;overflow-wrap:anywhere;}
+        .pratica-pasta-texto small{font-size:13px;font-weight:500;opacity:.85;}
+        .pratica-seta{margin-left:auto;opacity:.8;}
+        .pratica-voltar{margin-top:6px;}
+        .pratica-vazio{color:#cbd5e1;text-align:center;}
+        @media(max-width:600px){.pratica-pasta,.pratica-subpasta{padding:13px;gap:10px}.pratica-icone-pasta,.pratica-icone-subpasta{flex-basis:38px;height:38px;font-size:19px}.pratica-pasta-texto .materia-titulo{font-size:16px}}
 
         .materia-com-subtitulo{
             flex-direction:column;
@@ -256,7 +274,7 @@ src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js">
     <div class="sidebar">
         <h2><i class="fas fa-graduation-cap"></i> EstudAí</h2>
         <div>
-            <button class="btn" onclick="openScreen('dashboard')"><i class="fas fa-chart-line"></i> Painel</button>
+            <button class="btn" onclick="openScreen('dashboard')"><i class="fas fa-chart-line"></i> Desempenho</button>
             <button class="btn" onclick="openScreen('disciplinas')"><i class="fas fa-book"></i> Disciplinas</button>
             <button class="btn" onclick="openScreen('questoes')"><i class="fas fa-question-circle"></i> Praticar</button>
         </div>
@@ -446,7 +464,8 @@ margin-top:10px;
     placeholder="Justificativa da resposta (será exibida quando o aluno errar)">
 </textarea>
               
-                <button class="btn" onclick="salvarQuestao()"><i class="fas fa-save"></i> Salvar</button>
+                <button class="btn" onclick="salvarQuestao(false)"><i class="fas fa-save"></i> Salvar e concluir</button>
+                <button class="btn btn-proxima-questao" type="button" onclick="salvarQuestao(true)"><i class="fas fa-plus-circle"></i> Salvar e adicionar próxima</button>
             </div>
             <button class="fab" onclick="resetForm()">+</button>
             <div class="import-export-questoes" style="display:flex;gap:10px;flex-wrap:wrap;margin:15px 0;justify-content:center;">
@@ -721,43 +740,80 @@ document.getElementById("explicacaoInput").value =
 document.getElementById('formAdd').classList.remove('hidden');
         }
 
-        function salvarQuestao(){
-            const index = parseInt(document.getElementById('editIndex').value);
-            
-           const nova = {
-    materia: document.getElementById('materiaInput').value,
-    subtitulo: document.getElementById('subtituloInput').value.trim(),
-    enunciado: document.getElementById('enunciadoInput').value,
+        function salvarQuestao(adicionarProxima = false){
+            const index = parseInt(document.getElementById('editIndex').value, 10);
+            const materiaCampo = document.getElementById('materiaInput');
+            const subtituloCampo = document.getElementById('subtituloInput');
+            const enunciadoCampo = document.getElementById('enunciadoInput');
+            const materia = materiaCampo.value.trim();
+            const enunciado = enunciadoCampo.value.trim();
 
-    opcoes: [
-        document.getElementById('op1').value.trim(),
-        document.getElementById('op2').value.trim(),
-        document.getElementById('op3').value.trim(),
-        document.getElementById('op4').value.trim(),
-        document.getElementById('op5').value.trim()
-    ],
+            if(!materia){
+                alert('Informe a disciplina antes de salvar a questão.');
+                materiaCampo.focus();
+                return;
+            }
+            if(!enunciado){
+                alert('Digite o enunciado da questão antes de salvar.');
+                enunciadoCampo.focus();
+                return;
+            }
 
-    correta: document.getElementById('corretaSelect').value,
-    explicacao: document.getElementById('explicacaoInput').value
-    
-};
+            const nova = {
+                materia: materia,
+                subtitulo: subtituloCampo.value.trim(),
+                enunciado: enunciadoCampo.value,
+                opcoes: [
+                    document.getElementById('op1').value.trim(),
+                    document.getElementById('op2').value.trim(),
+                    document.getElementById('op3').value.trim(),
+                    document.getElementById('op4').value.trim(),
+                    document.getElementById('op5').value.trim()
+                ],
+                correta: document.getElementById('corretaSelect').value,
+                explicacao: document.getElementById('explicacaoInput').value
+            };
 
-            // Se a alternativa marcada como correta estiver vazia,
-            // usa automaticamente a primeira alternativa preenchida.
-            const opcoesValidas = nova.opcoes;
-            const corretaAtual = parseInt(nova.correta);
-            if(!opcoesValidas[corretaAtual]){
-                const primeiraPreenchida = opcoesValidas.findIndex(op => op.trim() !== "");
-                if(primeiraPreenchida >= 0){
-                    nova.correta = String(primeiraPreenchida);
-                }
+            // Se a alternativa marcada como correta estiver vazia, usa a primeira preenchida.
+            const corretaAtual = parseInt(nova.correta, 10);
+            if(!nova.opcoes[corretaAtual]){
+                const primeiraPreenchida = nova.opcoes.findIndex(op => op.trim() !== '');
+                if(primeiraPreenchida >= 0) nova.correta = String(primeiraPreenchida);
             }
 
             let banco = JSON.parse(localStorage.getItem('bancoEstudos') || '[]');
-            if(index > -1) banco[index] = nova; else banco.push(nova);
+            if(index > -1){
+                banco[index] = nova;
+            }else{
+                const duplicada = banco.some(q =>
+                    (q.materia || '').trim().toLocaleLowerCase('pt-BR') === nova.materia.toLocaleLowerCase('pt-BR') &&
+                    (q.enunciado || '').trim().toLocaleLowerCase('pt-BR') === nova.enunciado.trim().toLocaleLowerCase('pt-BR')
+                );
+                if(duplicada && !confirm('Já existe uma questão com esse enunciado nesta disciplina. Deseja salvar mesmo assim?')) return;
+                banco.push(nova);
+            }
+
+            // Atualiza primeiro o armazenamento local para não perder a questão se a rede cair.
+            localStorage.setItem('bancoEstudos', JSON.stringify(banco));
             syncFirebase(banco);
-            document.getElementById('formAdd').classList.add('hidden');
-            
+            listarDisciplinasUnicas();
+            carregarMenuMaterias();
+            atualizarContadores();
+
+            if(adicionarProxima){
+                // Mantém disciplina e subtítulo; limpa apenas os campos da questão.
+                document.getElementById('editIndex').value = '-1';
+                enunciadoCampo.value = '';
+                ['op1','op2','op3','op4','op5'].forEach(id => document.getElementById(id).value = '');
+                document.getElementById('corretaSelect').value = '0';
+                document.getElementById('explicacaoInput').value = '';
+                document.getElementById('formAdd').classList.remove('hidden');
+                enunciadoCampo.focus();
+                alert(index > -1 ? 'Questão atualizada. O formulário está pronto para cadastrar outra questão na mesma disciplina e tema.' : 'Questão salva! O formulário está pronto para a próxima questão na mesma disciplina e tema.');
+            }else{
+                document.getElementById('formAdd').classList.add('hidden');
+                resetForm();
+            }
         }
 
         function openScreen(id){
@@ -907,48 +963,67 @@ document.getElementById('formAdd').classList.remove('hidden');
     atualizarContadores();
 }
 
+        // Tela inicial de Praticar: exibe cada título/disciplina apenas uma vez.
         function carregarMenuMaterias(){
             const banco = JSON.parse(localStorage.getItem('bancoEstudos') || '[]');
             const menu = document.getElementById('menuMaterias');
             menu.classList.remove('hidden');
             document.getElementById('areaQuestao').classList.add('hidden');
-            menu.innerHTML = '<h3>Selecione uma matéria:</h3>';
 
-            // No modo de prática, cada combinação matéria + subtítulo
-            // representa uma página/sessão de exercícios independente.
-            const grupos = [];
-            const chaves = new Set();
-
+            const materias = new Map();
             banco.forEach(q => {
                 const materia = (q.materia || '').trim();
-                const subtitulo = (q.subtitulo || '').trim();
                 if(!materia) return;
-
-                const chave = materia.toLocaleLowerCase('pt-BR') + '||' + subtitulo.toLocaleLowerCase('pt-BR');
-                if(!chaves.has(chave)){
-                    chaves.add(chave);
-                    grupos.push({ materia, subtitulo });
-                }
+                const chave = materia.toLocaleLowerCase('pt-BR');
+                if(!materias.has(chave)) materias.set(chave, { materia, total: 0 });
+                materias.get(chave).total++;
             });
+            const lista = Array.from(materias.values()).sort((a,b) => a.materia.localeCompare(b.materia, 'pt-BR'));
 
-            grupos.sort((a,b) => {
-                const materiaCmp = a.materia.localeCompare(b.materia, 'pt-BR');
-                if(materiaCmp !== 0) return materiaCmp;
+            menu.innerHTML = `<h3 class="pratica-cabecalho">📚 Selecione um título</h3>`;
+            if(!lista.length){
+                menu.innerHTML += `<div class="card pratica-vazio">Nenhuma questão cadastrada ainda. Acesse <strong>Disciplinas</strong> para adicionar questões.</div>`;
+                return;
+            }
+            lista.forEach(item => {
+                menu.innerHTML += `
+                    <button class="btn-secundario pratica-pasta" onclick='mostrarSubtitulosPratica(${JSON.stringify(item.materia)})'>
+                        <span class="pratica-icone-pasta"><i class="fas fa-folder"></i></span>
+                        <span class="pratica-pasta-texto"><span class="materia-titulo">${item.materia}</span><small>${item.total} questão(ões)</small></span>
+                        <i class="fas fa-chevron-right pratica-seta"></i>
+                    </button>`;
+            });
+        }
+
+        // Segunda camada: subtítulos/temas pertencentes ao título selecionado.
+        function mostrarSubtitulosPratica(materia){
+            const banco = JSON.parse(localStorage.getItem('bancoEstudos') || '[]');
+            const menu = document.getElementById('menuMaterias');
+            menu.classList.remove('hidden');
+            document.getElementById('areaQuestao').classList.add('hidden');
+            const questoesMateria = banco.filter(q => (q.materia || '').trim().toLocaleLowerCase('pt-BR') === materia.trim().toLocaleLowerCase('pt-BR'));
+            const grupos = new Map();
+            questoesMateria.forEach(q => {
+                const subtitulo = (q.subtitulo || '').trim();
+                const chave = subtitulo.toLocaleLowerCase('pt-BR');
+                if(!grupos.has(chave)) grupos.set(chave, { subtitulo, total: 0 });
+                grupos.get(chave).total++;
+            });
+            const lista = Array.from(grupos.values()).sort((a,b) => {
+                if(!a.subtitulo) return 1;
+                if(!b.subtitulo) return -1;
                 return a.subtitulo.localeCompare(b.subtitulo, 'pt-BR');
             });
-
-            grupos.forEach(grupo => {
-                const materiaJS = JSON.stringify(grupo.materia);
-                const subtituloJS = JSON.stringify(grupo.subtitulo);
-                const subtituloHtml = grupo.subtitulo
-                    ? `<span class="materia-subtitulo">${grupo.subtitulo}</span>`
-                    : '';
-
+            menu.innerHTML = `<button class="btn-secundario pratica-voltar" onclick="carregarMenuMaterias()"><i class="fas fa-arrow-left"></i> Todos os títulos</button>
+                <h3 class="pratica-cabecalho"><i class="fas fa-folder-open"></i> ${materia}</h3>
+                <p class="pratica-instrucao">Selecione um subtítulo para começar a praticar.</p>`;
+            lista.forEach(item => {
+                const nome = item.subtitulo || 'Sem subtítulo';
                 menu.innerHTML += `
-                    <button class="btn-secundario materia-com-subtitulo"
-                        onclick='iniciarSessao(${materiaJS}, ${subtituloJS})'>
-                        <span class="materia-titulo">${grupo.materia}</span>
-                        ${subtituloHtml}
+                    <button class="btn-secundario pratica-subpasta" onclick='iniciarSessao(${JSON.stringify(materia)}, ${JSON.stringify(item.subtitulo)})'>
+                        <span class="pratica-icone-subpasta"><i class="fas fa-folder-open"></i></span>
+                        <span class="pratica-pasta-texto"><span class="materia-titulo">${nome}</span><small>${item.total} questão(ões)</small></span>
+                        <i class="fas fa-chevron-right pratica-seta"></i>
                     </button>`;
             });
         }
@@ -961,7 +1036,7 @@ document.getElementById('formAdd').classList.remove('hidden');
             // e, depois dela, a próxima nunca será a questão imediatamente seguinte.
             const filtradas = banco
                 .map((q, indiceBanco) => ({ ...q, _indiceBanco: indiceBanco }))
-                .filter(q => (q.materia || '').trim() === materia && (q.subtitulo || '').trim() === subtitulo)
+                .filter(q => (q.materia || '').trim().toLocaleLowerCase('pt-BR') === materia.trim().toLocaleLowerCase('pt-BR') && (q.subtitulo || '').trim().toLocaleLowerCase('pt-BR') === subtitulo.trim().toLocaleLowerCase('pt-BR'))
                 .map((q, indiceMateria) => ({ ...q, _numeroOriginal: indiceMateria + 1 }));
 
             questoesParaResponder = [];
