@@ -79,7 +79,7 @@ let acaoConfirmada = "";
         }
         .btn-proxima-questao:hover{filter:brightness(1.06);transform:translateY(-1px);}
         .btn-edit{/* display:none !important;*/ /*foi pra ocultar o botão editar*/background:#d97706; border:none; color:white; padding:10px 14px; border-radius:12px; cursor:pointer; margin-right:8px; font-size:16px; }
-        .btn-del{ display:none !important;  /*foi pra ocultar o botão apagar*/background:#dc2626; border:none; color:white; padding:10px 14px; border-radius:12px; cursor:pointer; font-size:16px; }
+        .btn-del{/* display:none !important;*/  /*foi pra ocultar o botão apagar*/background:#dc2626; border:none; color:white; padding:10px 14px; border-radius:12px; cursor:pointer; font-size:16px; }
         .btn-secundario{
     border:none;
     width:100%;
@@ -274,7 +274,7 @@ src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js">
     <div class="sidebar">
         <h2><i class="fas fa-graduation-cap"></i> EstudAí</h2>
         <div>
-            <button class="btn" onclick="openScreen('dashboard')"><i class="fas fa-chart-line"></i> Desempenho</button>
+            <button class="btn" onclick="openScreen('dashboard')"><i class="fas fa-chart-line"></i> Painel</button>
             <button class="btn" onclick="openScreen('disciplinas')"><i class="fas fa-book"></i> Disciplinas</button>
             <button class="btn" onclick="openScreen('questoes')"><i class="fas fa-question-circle"></i> Praticar</button>
         </div>
@@ -511,29 +511,116 @@ margin-top:10px;
 
         // Exporta as questões deste aparelho em um arquivo JSON.
         // O arquivo pode ser enviado para outro usuário e importado na versão normal ou privada.
-        function exportarQuestoes(){
-            const banco = JSON.parse(localStorage.getItem('bancoEstudos') || '[]');
-            if(!banco.length){
-                alert('Não há questões salvas para baixar.');
-                return;
+        async function exportarQuestoes(){
+            let link = null;
+            let url = null;
+            let conteudo = '';
+            let nomeArquivo = '';
+            try {
+                // Lê primeiro o banco local para evitar atrasos desnecessários.
+                let banco = [];
+                try {
+                    const bruto = localStorage.getItem('bancoEstudos');
+                    const salvo = bruto ? JSON.parse(bruto) : [];
+                    banco = Array.isArray(salvo) ? salvo :
+                        (salvo && typeof salvo === 'object' ? Object.values(salvo) : []);
+                } catch (erroLocal) {
+                    console.warn('Não foi possível ler o banco local:', erroLocal);
+                }
+
+                // Se não houver questões locais, tenta consultar o Firebase.
+                if (!banco.length && typeof db !== 'undefined' && db && db.ref) {
+                    try {
+                        const snapshot = await db.ref('bancoEstudos').once('value');
+                        const remoto = snapshot.val();
+                        banco = remoto ? (Array.isArray(remoto) ? remoto : Object.values(remoto)) : [];
+                    } catch (erroFirebase) {
+                        console.warn('Não foi possível consultar o Firebase para exportar:', erroFirebase);
+                    }
+                }
+
+                const questoesValidas = banco.filter(q => q && typeof q === 'object' && typeof q.enunciado === 'string');
+                if (!questoesValidas.length) {
+                    alert('Não encontrei questões salvas para baixar. Confira se as questões já carregaram e tente novamente.');
+                    return;
+                }
+
+                const dados = {
+                    app: 'Gabarita AI',
+                    tipo: 'bancoEstudos',
+                    versao: 1,
+                    criadoEm: new Date().toISOString(),
+                    questoes: questoesValidas
+                };
+                conteudo = JSON.stringify(dados, null, 2);
+                nomeArquivo = 'GabaritaAI_questoes_' + new Date().toISOString().slice(0, 10) + '.json';
+
+                // Primeiro tenta o compartilhamento nativo do Android. Se o usuário
+                // cancelar ou o navegador não aceitar, continua para o download normal.
+                try {
+                    if (typeof File !== 'undefined' &&
+                        typeof navigator.share === 'function' &&
+                        typeof navigator.canShare === 'function') {
+                        const arquivo = new File([conteudo], nomeArquivo, { type: 'application/json' });
+                        if (navigator.canShare({ files: [arquivo] })) {
+                            await navigator.share({
+                                files: [arquivo],
+                                title: 'Questões do Gabarita AI',
+                                text: 'Arquivo de backup das questões do Gabarita AI.'
+                            });
+                            return;
+                        }
+                    }
+                } catch (erroCompartilhamento) {
+                    // Cancelamento ou bloqueio do compartilhamento não deve impedir
+                    // a segunda tentativa de download.
+                    console.warn('Compartilhamento indisponível; tentando download:', erroCompartilhamento);
+                }
+
+                const blob = new Blob([conteudo], { type: 'application/json;charset=utf-8' });
+                url = URL.createObjectURL(blob);
+                link = document.createElement('a');
+                link.href = url;
+                link.download = nomeArquivo;
+                link.textContent = 'Toque aqui para salvar ' + nomeArquivo;
+                link.setAttribute('target', '_blank');
+                link.style.cssText = 'display:block;margin:16px auto;padding:14px;background:#facc15;color:#382600;text-align:center;border-radius:10px;font-weight:bold;max-width:90%;overflow-wrap:anywhere;';
+                document.body.appendChild(link);
+
+                // Tenta iniciar o download automático.
+                link.click();
+
+                // Mantém um link visível como alternativa para leitores Android que
+                // ignoram o atributo download. Ele não é removido automaticamente.
+                let aviso = document.getElementById('avisoExportacaoManual');
+                if (!aviso) {
+                    aviso = document.createElement('div');
+                    aviso.id = 'avisoExportacaoManual';
+                    aviso.style.cssText = 'position:relative;z-index:9999;margin:14px;padding:12px;border:1px solid #facc15;border-radius:12px;background:#1b263b;color:#fff;text-align:center;';
+                    document.body.appendChild(aviso);
+                }
+                aviso.innerHTML = '<strong>Se o arquivo não baixou automaticamente:</strong><br>toque no link amarelo abaixo para abrir/salvar o JSON.';
+                aviso.appendChild(link);
+
+            } catch (erro) {
+                console.error('Erro ao exportar questões:', erro);
+                // Último recurso: mostra os dados em uma página de texto para que
+                // possam ser salvos manualmente, em vez de mostrar apenas um alerta.
+                if (conteudo) {
+                    try {
+                        const janela = window.open('', '_blank');
+                        if (janela) {
+                            janela.document.open();
+                            janela.document.write('<!doctype html><html lang="pt-BR"><meta charset="utf-8"><title>Backup Gabarita AI</title><body style="font:16px sans-serif;padding:20px;background:#111827;color:#fff"><h2>Backup das questões</h2><p>Se não houve download automático, copie o conteúdo abaixo e salve como GabaritaAI_questoes.json.</p><textarea style="width:100%;height:70vh;box-sizing:border-box">' + conteudo.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') + '</textarea></body></html>');
+                            janela.document.close();
+                            return;
+                        }
+                    } catch (erroAlternativo) {
+                        console.warn('Não foi possível abrir a página de backup:', erroAlternativo);
+                    }
+                }
+                alert('Não foi possível iniciar o download automático. Confira se apareceu um link amarelo na página para salvar o arquivo.');
             }
-            const dados = {
-                app: 'Gabarita AI',
-                tipo: 'bancoEstudos',
-                versao: 1,
-                criadoEm: new Date().toISOString(),
-                questoes: banco
-            };
-            const blob = new Blob([JSON.stringify(dados, null, 2)], {type:'application/json'});
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            const data = new Date().toISOString().slice(0,10);
-            a.href = url;
-            a.download = 'GabaritaAI_questoes_' + data + '.json';
-            document.body.appendChild(a);
-            a.click();
-            a.remove();
-            URL.revokeObjectURL(url);
         }
 
         function importarQuestoes(event){
@@ -1086,7 +1173,7 @@ document.getElementById('formAdd').classList.remove('hidden');
             document.getElementById('areaQuestao').classList.remove('hidden');
 
             if (indiceAtual >= questoesParaResponder.length) {
-                container.innerHTML = `<h3>Sessão Finalizada!</h3><button class="btn-secundario" onclick="openScreen('questoes')">Voltar ao Titulo</button>`;
+                container.innerHTML = `<h3>Sessão Finalizada!</h3><button class="btn-secundario" onclick="openScreen('questoes')">Voltar ao menu</button>`;
                 return;
             }
 
