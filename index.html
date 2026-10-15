@@ -590,18 +590,77 @@ margin-top:10px;
                 // Tenta iniciar o download automático.
                 link.click();
 
-                // Mantém um link visível como alternativa para leitores Android que
-                // ignoram o atributo download. Ele não é removido automaticamente.
+                // Painel de alternativas: alguns navegadores Android, principalmente
+                // quando a página foi aberta por content://, ignoram downloads de Blob.
                 let aviso = document.getElementById('avisoExportacaoManual');
                 if (!aviso) {
                     aviso = document.createElement('div');
                     aviso.id = 'avisoExportacaoManual';
-                    aviso.style.cssText = 'position:relative;z-index:9999;margin:14px;padding:12px;border:1px solid #facc15;border-radius:12px;background:#1b263b;color:#fff;text-align:center;';
+                    aviso.style.cssText = 'position:relative;z-index:9999;margin:14px;padding:16px;border:1px solid #facc15;border-radius:12px;background:#1b263b;color:#fff;text-align:center;';
                     document.body.appendChild(aviso);
                 }
-                aviso.innerHTML = '<strong>Se o arquivo não baixou automaticamente:</strong><br>toque no link amarelo abaixo para abrir/salvar o JSON.';
-                aviso.appendChild(link);
+                aviso.replaceChildren();
+                const tituloAviso = document.createElement('div');
+                tituloAviso.innerHTML = '<strong>O navegador bloqueou o download automático?</strong><br>Escolha uma alternativa abaixo:';
+                tituloAviso.style.marginBottom = '12px';
+                aviso.appendChild(tituloAviso);
 
+                const estiloBotao = 'display:block;width:100%;box-sizing:border-box;margin:10px 0;padding:14px;background:#facc15;color:#382600;text-align:center;border:0;border-radius:10px;font-size:16px;font-weight:bold;';
+                const btnAbrir = document.createElement('button');
+                btnAbrir.type = 'button';
+                btnAbrir.textContent = 'Abrir arquivo JSON';
+                btnAbrir.style.cssText = estiloBotao;
+                btnAbrir.onclick = function(){
+                    // Abre como texto simples para evitar que o navegador tente baixar
+                    // um Blob através de um contexto content://.
+                    const textoBlob = new Blob([conteudo], {type:'text/plain;charset=utf-8'});
+                    const textoUrl = URL.createObjectURL(textoBlob);
+                    const novaAba = window.open(textoUrl, '_blank');
+                    if (!novaAba) {
+                        alert('O navegador bloqueou a nova aba. Permita pop-ups ou use Compartilhar/Salvar.');
+                    }
+                    setTimeout(() => URL.revokeObjectURL(textoUrl), 60000);
+                };
+                aviso.appendChild(btnAbrir);
+
+                const btnCompartilhar = document.createElement('button');
+                btnCompartilhar.type = 'button';
+                btnCompartilhar.textContent = 'Compartilhar / Salvar arquivo';
+                btnCompartilhar.style.cssText = estiloBotao + 'background:#9be22d;';
+                btnCompartilhar.onclick = async function(){
+                    try {
+                        if (typeof File !== 'undefined' && typeof navigator.share === 'function') {
+                            const arquivo = new File([conteudo], nomeArquivo, {type:'application/json'});
+                            await navigator.share({files:[arquivo], title:'Questões do Gabarita AI', text:'Backup das questões'});
+                        } else {
+                            alert('O compartilhamento de arquivos não está disponível neste navegador. Use “Abrir arquivo JSON”.');
+                        }
+                    } catch (e) {
+                        if (e && e.name !== 'AbortError') alert('Não foi possível compartilhar. Tente “Abrir arquivo JSON”.');
+                    }
+                };
+                aviso.appendChild(btnCompartilhar);
+
+                const btnCopiar = document.createElement('button');
+                btnCopiar.type = 'button';
+                btnCopiar.textContent = 'Copiar conteúdo JSON';
+                btnCopiar.style.cssText = estiloBotao + 'background:#93c5fd;';
+                btnCopiar.onclick = async function(){
+                    try {
+                        await navigator.clipboard.writeText(conteudo);
+                        alert('Conteúdo JSON copiado. Você pode colá-lo em um arquivo de texto e salvá-lo com a extensão .json.');
+                    } catch (e) {
+                        const area = document.createElement('textarea');
+                        area.value = conteudo;
+                        area.readOnly = true;
+                        area.style.cssText = 'width:100%;height:220px;box-sizing:border-box;margin-top:10px;';
+                        aviso.appendChild(area);
+                        area.focus(); area.select();
+                        alert('A cópia automática foi bloqueada. O conteúdo foi selecionado; toque em Copiar no menu do Android.');
+                    }
+                };
+                aviso.appendChild(btnCopiar);
+                aviso.scrollIntoView({behavior:'smooth', block:'center'});
             } catch (erro) {
                 console.error('Erro ao exportar questões:', erro);
                 // Último recurso: mostra os dados em uma página de texto para que
@@ -1173,7 +1232,7 @@ document.getElementById('formAdd').classList.remove('hidden');
             document.getElementById('areaQuestao').classList.remove('hidden');
 
             if (indiceAtual >= questoesParaResponder.length) {
-                container.innerHTML = `<h3>Sessão Finalizada!</h3><button class="btn-secundario" onclick="openScreen('questoes')">Voltar ao menu</button>`;
+                container.innerHTML = `<h3>Sessão Finalizada!</h3><button class="btn-secundario" onclick="openScreen('questoes')"> Voltar ao Título</button>`;
                 return;
             }
 
