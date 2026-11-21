@@ -43,6 +43,10 @@ let acaoConfirmada = "";
     campo.selectionStart =
         campo.selectionEnd =
         inicio + simbolo.length;
+
+    if (typeof atualizarPreviewEnunciado === "function") {
+        atualizarPreviewEnunciado();
+    }
 }
     </script>
     
@@ -239,6 +243,59 @@ let acaoConfirmada = "";
 #latexModal tr:nth-child(even){
     background:rgba(255,255,255,0.05);
 }
+#latexModal tbody tr.latex-item{
+    cursor:pointer;
+    transition:background .15s;
+}
+#latexModal tbody tr.latex-item:hover,
+#latexModal tbody tr.latex-item:active{
+    background:rgba(96, 165, 250, 0.28);
+}
+.preview-enunciado-box{
+    background:rgba(15, 23, 42, 0.72);
+    border:1px solid rgba(96, 165, 250, 0.35);
+    border-radius:14px;
+    padding:12px 14px;
+    margin-top:-4px;
+    margin-bottom:14px;
+    text-align:left;
+}
+.preview-enunciado-header{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    gap:8px;
+    font-size:12px;
+    color:#93c5fd;
+    margin-bottom:6px;
+    font-weight:600;
+}
+.preview-status{
+    font-size:11px;
+    padding:2px 8px;
+    border-radius:999px;
+    font-weight:600;
+}
+.preview-status.ok{
+    background:rgba(34, 197, 94, 0.18);
+    color:#86efac;
+}
+.preview-status.erro{
+    background:rgba(239, 68, 68, 0.2);
+    color:#fca5a5;
+}
+.preview-status.vazio{
+    background:rgba(148, 163, 184, 0.16);
+    color:#cbd5e1;
+}
+.preview-enunciado-conteudo{
+    font-size:16px;
+    line-height:1.55;
+    color:#f8fafc;
+    min-height:24px;
+    word-break:break-word;
+    white-space:pre-wrap;
+}
     </style>
     
   <link rel="stylesheet"
@@ -432,7 +489,14 @@ margin-top:10px;
     <button type="button" onclick="inserirSimbolo('ρ')">ρ</button>
 </div>
 
-<textarea id="enunciadoInput" placeholder="Enunciado"></textarea>         
+<textarea id="enunciadoInput" placeholder="Enunciado" oninput="atualizarPreviewEnunciado()"></textarea>
+                <div class="preview-enunciado-box">
+                    <div class="preview-enunciado-header">
+                        <span><i class="fas fa-eye"></i> Leitor do Enunciado (LaTeX)</span>
+                        <span id="statusLatexEnunciado" class="preview-status vazio">Aguardando texto</span>
+                    </div>
+                    <div id="previewEnunciado" class="preview-enunciado-conteudo">A visualização do enunciado aparecerá aqui...</div>
+                </div>         
                 <div class="alternativa-item">
                     <span class="letra-alternativa">a)</span>
                     <input type="text" id="op1" placeholder="Alternativa A">
@@ -867,6 +931,7 @@ function atualizarContadores(){
             document.getElementById('corretaSelect').value = "0";
             document.getElementById('formAdd').classList.remove('hidden');
             document.getElementById("explicacaoInput").value = "";
+            atualizarPreviewEnunciado();
         }
 
         function editarQuestao(index) {
@@ -886,6 +951,7 @@ document.getElementById('corretaSelect').value = q.correta;
 document.getElementById("explicacaoInput").value =
     q.explicacao || "";
 document.getElementById('formAdd').classList.remove('hidden');
+            atualizarPreviewEnunciado();
         }
 
         function salvarQuestao(adicionarProxima = false){
@@ -956,6 +1022,7 @@ document.getElementById('formAdd').classList.remove('hidden');
                 document.getElementById('corretaSelect').value = '0';
                 document.getElementById('explicacaoInput').value = '';
                 document.getElementById('formAdd').classList.remove('hidden');
+                atualizarPreviewEnunciado();
                 enunciadoCampo.focus();
                 alert(index > -1 ? 'Questão atualizada. O formulário está pronto para cadastrar outra questão na mesma disciplina e tema.' : 'Questão salva! O formulário está pronto para a próxima questão na mesma disciplina e tema.');
             }else{
@@ -1357,6 +1424,83 @@ atualizarContadores();
     document.getElementById("latexModal").style.display = "none";
 }
 
+        function configurarToqueGuiaLatex(){
+            const tabela = document.querySelector("#latexModal table");
+            if(!tabela) return;
+
+            const linhas = tabela.querySelectorAll("tr");
+            linhas.forEach((tr, idx) => {
+                if(idx === 0) return;
+                const codeEl = tr.querySelector("td code");
+                if(!codeEl) return;
+
+                const codigoLatex = codeEl.textContent.trim();
+                tr.classList.add("latex-item");
+                tr.title = "Toque para inserir " + codigoLatex + " no Enunciado";
+                tr.addEventListener("click", () => {
+                    fecharGuiaLatex();
+                    inserirSimbolo(codigoLatex);
+                });
+            });
+        }
+
+        function atualizarPreviewEnunciado(){
+            const campo = document.getElementById("enunciadoInput");
+            const preview = document.getElementById("previewEnunciado");
+            const status = document.getElementById("statusLatexEnunciado");
+            if(!campo || !preview || !status) return;
+
+            const texto = campo.value;
+            if(!texto.trim()){
+                preview.textContent = "A visualização do enunciado aparecerá aqui...";
+                preview.style.opacity = "0.65";
+                status.textContent = "Aguardando texto";
+                status.className = "preview-status vazio";
+                return;
+            }
+
+            preview.style.opacity = "1";
+            preview.textContent = texto;
+
+            const semEscapados = texto.replace(/\\\$/g, "");
+            const semBlocos = semEscapados.replace(/\$\$([\s\S]*?)\$\$/g, "");
+            const temBlocoAberto = semBlocos.includes("$$");
+            const qtdSimples = (semBlocos.match(/\$/g) || []).length;
+
+            if(temBlocoAberto || qtdSimples % 2 !== 0){
+                status.textContent = "⚠️ Falta fechar $";
+                status.className = "preview-status erro";
+                return;
+            }
+
+            if(typeof renderMathInElement === "function"){
+                let erroSintaxe = false;
+                renderMathInElement(preview, {
+                    delimiters: [
+                        {left: "$$", right: "$$", display: true},
+                        {left: "$", right: "$", display: false}
+                    ],
+                    throwOnError: false,
+                    errorCallback: function(){
+                        erroSintaxe = true;
+                    }
+                });
+
+                if(erroSintaxe || preview.querySelector(".katex-error")){
+                    status.textContent = "❌ Código LaTeX incorreto";
+                    status.className = "preview-status erro";
+                } else {
+                    status.textContent = "✅ Código válido";
+                    status.className = "preview-status ok";
+                }
+            }
+        }
+
+        document.addEventListener("DOMContentLoaded", () => {
+            configurarToqueGuiaLatex();
+            atualizarPreviewEnunciado();
+        });
+
         function renomearGrupo(materiaAntiga, subtituloAntigo){
             materiaParaRenomear = materiaAntiga;
             subtituloParaRenomear = subtituloAntigo || '';
@@ -1450,9 +1594,11 @@ margin-top:15px;
 <th style="border:1px solid #555;padding:8px;">Resultado</th>
 </tr>
 
+
+
 <tr>
-<td><code>$x^n$</code></td>
-<td>$x^n$</td>
+<td><code>$\underline{\text{palavra}}$</code></td>
+<td>$\underline{\text{sublinhado}}$</td>
 </tr>
 
 <tr>
