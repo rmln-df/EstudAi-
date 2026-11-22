@@ -47,6 +47,9 @@ let acaoConfirmada = "";
     if (typeof atualizarPreviewEnunciado === "function") {
         atualizarPreviewEnunciado();
     }
+    if (typeof verificarDuplicidadeEmTempoReal === "function") {
+        verificarDuplicidadeEmTempoReal();
+    }
 }
     </script>
     
@@ -296,6 +299,58 @@ let acaoConfirmada = "";
     word-break:break-word;
     white-space:pre-wrap;
 }
+.alerta-duplicada-box{
+    display:none;
+    background:rgba(245, 158, 11, 0.16);
+    border:1px solid rgba(251, 191, 36, 0.7);
+    border-left:5px solid #f59e0b;
+    border-radius:14px;
+    padding:12px 14px;
+    margin-top:-6px;
+    margin-bottom:14px;
+    text-align:left;
+    color:#fef3c7;
+    font-size:14px;
+    line-height:1.45;
+}
+.alerta-duplicada-box.ativo{
+    display:block;
+}
+.alerta-duplicada-titulo{
+    font-weight:700;
+    color:#fbbf24;
+    margin-bottom:4px;
+    display:flex;
+    align-items:center;
+    gap:6px;
+}
+.alerta-duplicada-detalhe{
+    font-size:13px;
+    color:#fde68a;
+    margin-top:4px;
+}
+.alerta-duplicada-acoes{
+    display:flex;
+    gap:8px;
+    flex-wrap:wrap;
+    margin-top:10px;
+}
+.btn-mini-alerta{
+    border:none;
+    border-radius:10px;
+    padding:8px 12px;
+    font-size:13px;
+    font-weight:700;
+    cursor:pointer;
+}
+.btn-mini-aceitar{
+    background:#22c55e;
+    color:#052e16;
+}
+.btn-mini-recusar{
+    background:#ef4444;
+    color:#ffffff;
+}
     </style>
     
   <link rel="stylesheet"
@@ -408,7 +463,7 @@ margin-top:10px;
             <h2>Gerenciamento</h2>
             <div id="formAdd" class="card hidden">
                 <input type="hidden" id="editIndex" value="-1">
-                <input type="text" id="materiaInput" placeholder="Nome da Matéria">
+                <input type="text" id="materiaInput" placeholder="Nome da Matéria" oninput="verificarDuplicidadeEmTempoReal()">
                 <input type="text" id="subtituloInput" placeholder="Subtítulo / Tema (opcional)">           
                 
              <div class="math-toolbar">
@@ -489,7 +544,16 @@ margin-top:10px;
     <button type="button" onclick="inserirSimbolo('ρ')">ρ</button>
 </div>
 
-<textarea id="enunciadoInput" placeholder="Enunciado" oninput="atualizarPreviewEnunciado()"></textarea>
+<textarea id="enunciadoInput" placeholder="Enunciado" oninput="atualizarPreviewEnunciado(); verificarDuplicidadeEmTempoReal();"></textarea>
+                <div id="alertaDuplicadaLive" class="alerta-duplicada-box" role="alert">
+                    <div class="alerta-duplicada-titulo">⚠️ Atenção: Questão repetida ou muito parecida encontrada!</div>
+                    <div id="alertaDuplicadaTexto"></div>
+                    <div id="alertaDuplicadaDetalhe" class="alerta-duplicada-detalhe"></div>
+                    <div class="alerta-duplicada-acoes">
+                        <button type="button" class="btn-mini-alerta btn-mini-aceitar" onclick="aceitarQuestaoRepetidaLive()">✅ Aceitar mesmo assim</button>
+                        <button type="button" class="btn-mini-alerta btn-mini-recusar" onclick="recusarQuestaoRepetidaLive()">❌ Não aceitar (limpar)</button>
+                    </div>
+                </div>
                 <div class="preview-enunciado-box">
                     <div class="preview-enunciado-header">
                         <span><i class="fas fa-eye"></i> Leitor do Enunciado (LaTeX)</span>
@@ -533,7 +597,7 @@ margin-top:10px;
             </div>
             <button class="fab" onclick="resetForm()">+</button>
             <div class="import-export-questoes" style="display:flex;gap:10px;flex-wrap:wrap;margin:15px 0;justify-content:center;">
-                <button class="btn-secundario btn-baixar-questoes" onclick="exportarQuestoes()"><i class="fas fa-download"></i> Baixar questões</button>
+                <button class="btn-secundario btn-baixar-questoes" onclick="abrirModalExportacao()"><i class="fas fa-download"></i> Baixar questões</button>
                 <button class="btn-secundario btn-importar-questoes" onclick="document.getElementById('arquivoQuestoes').click()"><i class="fas fa-upload"></i> Importar questões</button>
                 <input type="file" id="arquivoQuestoes" accept=".json,application/json" style="display:none" onchange="importarQuestoes(event)">
             </div>
@@ -573,9 +637,78 @@ margin-top:10px;
         });
 
 
-        // Exporta as questões deste aparelho em um arquivo JSON.
+        function obterBancoExportacao(){
+            let banco = [];
+            try {
+                const bruto = localStorage.getItem('bancoEstudos');
+                const salvo = bruto ? JSON.parse(bruto) : [];
+                banco = Array.isArray(salvo) ? salvo :
+                    (salvo && typeof salvo === 'object' ? Object.values(salvo) : []);
+            } catch (erroLocal) {
+                console.warn('Não foi possível ler o banco local:', erroLocal);
+            }
+            return banco.filter(q => q && typeof q === 'object' && typeof q.enunciado === 'string');
+        }
+
+        async function abrirModalExportacao(){
+            let questoesValidas = obterBancoExportacao();
+            if (!questoesValidas.length && typeof db !== 'undefined' && db && db.ref) {
+                try {
+                    const snapshot = await db.ref('bancoEstudos').once('value');
+                    const remoto = snapshot.val();
+                    const arr = remoto ? (Array.isArray(remoto) ? remoto : Object.values(remoto)) : [];
+                    questoesValidas = arr.filter(q => q && typeof q === 'object' && typeof q.enunciado === 'string');
+                } catch (erroFirebase) {
+                    console.warn('Não foi possível consultar o Firebase para exportar:', erroFirebase);
+                }
+            }
+
+            if (!questoesValidas.length) {
+                alert('Não encontrei questões salvas para baixar. Confira se as questões já carregaram e tente novamente.');
+                return;
+            }
+
+            const mapaTitulos = new Map();
+            questoesValidas.forEach(q => {
+                const mat = (q.materia || 'Sem título').trim() || 'Sem título';
+                const chave = mat.toLocaleLowerCase('pt-BR');
+                if (!mapaTitulos.has(chave)) {
+                    mapaTitulos.set(chave, { materia: mat, total: 0 });
+                }
+                mapaTitulos.get(chave).total++;
+            });
+
+            const listaTitulos = Array.from(mapaTitulos.values()).sort((a, b) =>
+                a.materia.localeCompare(b.materia, 'pt-BR')
+            );
+
+            const selectEl = document.getElementById('selectTituloExportar');
+            selectEl.innerHTML = `<option value="__TODOS__">📚 Todas as questões (${questoesValidas.length})</option>`;
+            listaTitulos.forEach(item => {
+                const opt = document.createElement('option');
+                opt.value = item.materia;
+                opt.textContent = `📁 ${item.materia} (${item.total} questão(ões))`;
+                selectEl.appendChild(opt);
+            });
+
+            document.getElementById('modalExportarTitulo').style.display = 'flex';
+        }
+
+        function fecharModalExportacao(){
+            const modal = document.getElementById('modalExportarTitulo');
+            if (modal) modal.style.display = 'none';
+        }
+
+        function confirmarExportacaoSelecionada(){
+            const selectEl = document.getElementById('selectTituloExportar');
+            const escolhido = selectEl ? selectEl.value : '__TODOS__';
+            fecharModalExportacao();
+            exportarQuestoes(escolhido === '__TODOS__' ? '' : escolhido);
+        }
+
+        // Exporta as questões deste aparelho em um arquivo JSON (todas ou filtradas por título).
         // O arquivo pode ser enviado para outro usuário e importado na versão normal ou privada.
-        async function exportarQuestoes(){
+        async function exportarQuestoes(filtroMateria = ''){
             let link = null;
             let url = null;
             let conteudo = '';
@@ -603,9 +736,17 @@ margin-top:10px;
                     }
                 }
 
-                const questoesValidas = banco.filter(q => q && typeof q === 'object' && typeof q.enunciado === 'string');
+                let questoesValidas = banco.filter(q => q && typeof q === 'object' && typeof q.enunciado === 'string');
+                const tituloFiltro = (filtroMateria || '').trim();
+                if (tituloFiltro) {
+                    questoesValidas = questoesValidas.filter(q =>
+                        ((q.materia || 'Sem título').trim() || 'Sem título').toLocaleLowerCase('pt-BR') ===
+                        tituloFiltro.toLocaleLowerCase('pt-BR')
+                    );
+                }
+
                 if (!questoesValidas.length) {
-                    alert('Não encontrei questões salvas para baixar. Confira se as questões já carregaram e tente novamente.');
+                    alert('Não encontrei questões salvas para este título. Confira se as questões já carregaram e tente novamente.');
                     return;
                 }
 
@@ -613,11 +754,15 @@ margin-top:10px;
                     app: 'Gabarita AI',
                     tipo: 'bancoEstudos',
                     versao: 1,
+                    titulo: tituloFiltro || 'Todas as disciplinas',
                     criadoEm: new Date().toISOString(),
                     questoes: questoesValidas
                 };
                 conteudo = JSON.stringify(dados, null, 2);
-                nomeArquivo = 'GabaritaAI_questoes_' + new Date().toISOString().slice(0, 10) + '.json';
+                const slugTitulo = tituloFiltro
+                    ? '_' + tituloFiltro.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-zA-Z0-9]+/g, '_').replace(/^_|_$/g, '')
+                    : '_todas';
+                nomeArquivo = 'GabaritaAI' + slugTitulo + '_' + new Date().toISOString().slice(0, 10) + '.json';
 
                 // Primeiro tenta o compartilhamento nativo do Android. Se o usuário
                 // cancelar ou o navegador não aceitar, continua para o download normal.
@@ -794,8 +939,14 @@ margin-top:10px;
                     listarDisciplinasUnicas();
                     carregarMenuMaterias();
                     atualizarContadores();
-                    alert(adicionadas + ' questão(ões) importada(s).\n' +
-                          (importadas.length - adicionadas) + ' já existia(m) e não foi(ram) duplicada(s).');
+                    const repetidasCount = importadas.length - adicionadas;
+                    if (repetidasCount > 0) {
+                        alert('⚠️ Aviso de questões repetidas:\n\n' +
+                              '✅ ' + adicionadas + ' questão(ões) nova(s) importada(s).\n' +
+                              '⚠️ ' + repetidasCount + ' questão(ões) repetida(s) encontrada(s) e ignorada(s) para evitar duplicidade.');
+                    } else {
+                        alert('✅ ' + adicionadas + ' questão(ões) importada(s) com sucesso! Nenhuma questão repetida encontrada.');
+                    }
                 }catch(erro){
                     console.error(erro);
                     alert('Não foi possível importar este arquivo. Use um arquivo .json gerado pelo Gabarita AI.');
@@ -931,6 +1082,10 @@ function atualizarContadores(){
             document.getElementById('corretaSelect').value = "0";
             document.getElementById('formAdd').classList.remove('hidden');
             document.getElementById("explicacaoInput").value = "";
+            duplicadaAceitaManualmente = false;
+            ultimaChaveDuplicadaAceita = "";
+            const boxLive = document.getElementById('alertaDuplicadaLive');
+            if (boxLive) boxLive.classList.remove('ativo');
             atualizarPreviewEnunciado();
         }
 
@@ -952,6 +1107,195 @@ document.getElementById("explicacaoInput").value =
     q.explicacao || "";
 document.getElementById('formAdd').classList.remove('hidden');
             atualizarPreviewEnunciado();
+        }
+
+        let duplicadaAceitaManualmente = false;
+        let ultimaChaveDuplicadaAceita = "";
+        let pendenteSalvarQuestao = null;
+
+        function normalizarTextoComparacao(txt){
+            return (txt || '')
+                .toString()
+                .normalize('NFD')
+                .replace(/[\u0300-\u036f]/g, '')
+                .toLocaleLowerCase('pt-BR')
+                .replace(/\s+/g, ' ')
+                .trim();
+        }
+
+        function calcularSimilaridadeTexto(a, b){
+            const s1 = normalizarTextoComparacao(a);
+            const s2 = normalizarTextoComparacao(b);
+            if (!s1 || !s2) return 0;
+            if (s1 === s2) return 1;
+            if (s1.length < 18 || s2.length < 18) return 0;
+
+            const palavras1 = new Set(s1.split(' ').filter(p => p.length > 2));
+            const palavras2 = new Set(s2.split(' ').filter(p => p.length > 2));
+            if (!palavras1.size || !palavras2.size) return 0;
+
+            let comuns = 0;
+            palavras1.forEach(p => { if (palavras2.has(p)) comuns++; });
+            const uniao = new Set([...palavras1, ...palavras2]).size;
+            return uniao ? (comuns / uniao) : 0;
+        }
+
+        function buscarQuestaoRepetida(materia, enunciado, ignorarIndex = -1){
+            const banco = JSON.parse(localStorage.getItem('bancoEstudos') || '[]');
+            const matNorm = normalizarTextoComparacao(materia);
+            const enunNorm = normalizarTextoComparacao(enunciado);
+            if (!enunNorm) return null;
+
+            let melhorParecida = null;
+
+            for (let i = 0; i < banco.length; i++){
+                if (i === ignorarIndex) continue;
+                const q = banco[i];
+                if (!q || !q.enunciado) continue;
+
+                const qMatNorm = normalizarTextoComparacao(q.materia);
+                const qEnunNorm = normalizarTextoComparacao(q.enunciado);
+
+                if (qEnunNorm === enunNorm){
+                    return {
+                        tipo: matNorm && qMatNorm === matNorm ? 'exata_mesma_materia' : 'exata_outra_materia',
+                        similaridade: 100,
+                        questao: q,
+                        index: i
+                    };
+                }
+
+                const sim = calcularSimilaridadeTexto(enunNorm, qEnunNorm);
+                if (sim >= 0.82 && (!melhorParecida || sim > melhorParecida.similaridadeRaw)){
+                    melhorParecida = {
+                        tipo: matNorm && qMatNorm === matNorm ? 'parecida_mesma_materia' : 'parecida_outra_materia',
+                        similaridade: Math.round(sim * 100),
+                        similaridadeRaw: sim,
+                        questao: q,
+                        index: i
+                    };
+                }
+            }
+            return melhorParecida;
+        }
+
+        function verificarDuplicidadeEmTempoReal(){
+            const box = document.getElementById('alertaDuplicadaLive');
+            const textoEl = document.getElementById('alertaDuplicadaTexto');
+            const detalheEl = document.getElementById('alertaDuplicadaDetalhe');
+            const materiaEl = document.getElementById('materiaInput');
+            const enunciadoEl = document.getElementById('enunciadoInput');
+            const editIdxEl = document.getElementById('editIndex');
+            if (!box || !textoEl || !detalheEl || !enunciadoEl) return;
+
+            const materia = materiaEl ? materiaEl.value : '';
+            const enunciado = enunciadoEl.value;
+            const ignorarIndex = editIdxEl ? parseInt(editIdxEl.value, 10) : -1;
+
+            if (normalizarTextoComparacao(enunciado).length < 10){
+                box.classList.remove('ativo');
+                duplicadaAceitaManualmente = false;
+                ultimaChaveDuplicadaAceita = "";
+                return;
+            }
+
+            const achada = buscarQuestaoRepetida(materia, enunciado, ignorarIndex);
+            if (!achada){
+                box.classList.remove('ativo');
+                duplicadaAceitaManualmente = false;
+                ultimaChaveDuplicadaAceita = "";
+                return;
+            }
+
+            const chaveAtual = normalizarTextoComparacao(materia) + '||' + normalizarTextoComparacao(enunciado);
+            if (duplicadaAceitaManualmente && ultimaChaveDuplicadaAceita === chaveAtual){
+                box.classList.remove('ativo');
+                return;
+            }
+
+            const qExistente = achada.questao;
+            const localInfo = qExistente.subtitulo
+                ? `${qExistente.materia} — ${qExistente.subtitulo}`
+                : (qExistente.materia || 'Sem título');
+
+            if (achada.tipo === 'exata_mesma_materia'){
+                textoEl.textContent = `⚠️ Esta questão já está cadastrada nesta mesma disciplina (${localInfo}).`;
+            } else if (achada.tipo === 'exata_outra_materia'){
+                textoEl.textContent = `⚠️ Este enunciado já existe em outra disciplina (${localInfo}).`;
+            } else {
+                textoEl.textContent = `⚠️ Encontramos uma questão ${achada.similaridade}% parecida em "${localInfo}".`;
+            }
+
+            const trecho = qExistente.enunciado.length > 130
+                ? qExistente.enunciado.slice(0, 130) + '...'
+                : qExistente.enunciado;
+            detalheEl.textContent = `Cadastrada: "${trecho}"`;
+            box.classList.add('ativo');
+        }
+
+        function aceitarQuestaoRepetidaLive(){
+            const materia = document.getElementById('materiaInput')?.value || '';
+            const enunciado = document.getElementById('enunciadoInput')?.value || '';
+            duplicadaAceitaManualmente = true;
+            ultimaChaveDuplicadaAceita = normalizarTextoComparacao(materia) + '||' + normalizarTextoComparacao(enunciado);
+            const box = document.getElementById('alertaDuplicadaLive');
+            if (box) box.classList.remove('ativo');
+        }
+
+        function recusarQuestaoRepetidaLive(){
+            const enunciadoEl = document.getElementById('enunciadoInput');
+            if (enunciadoEl){
+                enunciadoEl.value = '';
+                enunciadoEl.focus();
+            }
+            ['op1','op2','op3','op4','op5'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.value = '';
+            });
+            const expEl = document.getElementById('explicacaoInput');
+            if (expEl) expEl.value = '';
+            duplicadaAceitaManualmente = false;
+            ultimaChaveDuplicadaAceita = "";
+            const box = document.getElementById('alertaDuplicadaLive');
+            if (box) box.classList.remove('ativo');
+            atualizarPreviewEnunciado();
+        }
+
+        function abrirModalConfirmarDuplicada(achada, callbackAceitar){
+            const qExistente = achada.questao;
+            const localInfo = qExistente.subtitulo
+                ? `${qExistente.materia} — ${qExistente.subtitulo}`
+                : (qExistente.materia || 'Sem título');
+            const trecho = qExistente.enunciado.length > 160
+                ? qExistente.enunciado.slice(0, 160) + '...'
+                : qExistente.enunciado;
+
+            const avisoTipo = achada.similaridade === 100
+                ? `⚠️ Questão repetida encontrada em "${localInfo}".`
+                : `⚠️ Questão ${achada.similaridade}% parecida encontrada em "${localInfo}".`;
+
+            document.getElementById('modalTitle').innerText = '⚠️ Questão Repetida';
+            document.getElementById('modalMsg').innerHTML =
+                `<div style="text-align:left;line-height:1.45;">
+                    <p style="color:#fbbf24;font-weight:700;margin-bottom:8px;">${avisoTipo}</p>
+                    <p style="font-size:13px;color:#cbd5e1;background:rgba(15,23,42,.65);padding:10px;border-radius:10px;border-left:3px solid #f59e0b;margin-bottom:10px;">
+                        "${trecho.replace(/</g,'&lt;').replace(/>/g,'&gt;')}"
+                    </p>
+                    <p style="font-size:14px;">Deseja aceitar e salvar esta questão mesmo assim?</p>
+                </div>`;
+
+            pendenteSalvarQuestao = callbackAceitar;
+            document.getElementById('modalBtns').innerHTML =
+                `<button type="button" class="modal-btn" style="background:#ef4444;color:white;" onclick="fecharModal()">❌ Não aceitar</button>
+                 <button type="button" class="modal-btn" style="background:#22c55e;color:#052e16;" onclick="confirmarSalvarQuestaoDuplicada()">✅ Aceitar</button>`;
+            document.getElementById('customModal').style.display = 'flex';
+        }
+
+        function confirmarSalvarQuestaoDuplicada(){
+            const fn = pendenteSalvarQuestao;
+            pendenteSalvarQuestao = null;
+            fecharModal();
+            if (typeof fn === 'function') fn();
         }
 
         function salvarQuestao(adicionarProxima = false){
@@ -995,40 +1339,51 @@ document.getElementById('formAdd').classList.remove('hidden');
                 if(primeiraPreenchida >= 0) nova.correta = String(primeiraPreenchida);
             }
 
-            let banco = JSON.parse(localStorage.getItem('bancoEstudos') || '[]');
-            if(index > -1){
-                banco[index] = nova;
-            }else{
-                const duplicada = banco.some(q =>
-                    (q.materia || '').trim().toLocaleLowerCase('pt-BR') === nova.materia.toLocaleLowerCase('pt-BR') &&
-                    (q.enunciado || '').trim().toLocaleLowerCase('pt-BR') === nova.enunciado.trim().toLocaleLowerCase('pt-BR')
-                );
-                if(duplicada && !confirm('Já existe uma questão com esse enunciado nesta disciplina. Deseja salvar mesmo assim?')) return;
-                banco.push(nova);
+            const concluirGravacao = () => {
+                let banco = JSON.parse(localStorage.getItem('bancoEstudos') || '[]');
+                if(index > -1){
+                    banco[index] = nova;
+                }else{
+                    banco.push(nova);
+                }
+
+                // Atualiza primeiro o armazenamento local para não perder a questão se a rede cair.
+                localStorage.setItem('bancoEstudos', JSON.stringify(banco));
+                syncFirebase(banco);
+                listarDisciplinasUnicas();
+                carregarMenuMaterias();
+                atualizarContadores();
+
+                duplicadaAceitaManualmente = false;
+                ultimaChaveDuplicadaAceita = "";
+                const boxLive = document.getElementById('alertaDuplicadaLive');
+                if (boxLive) boxLive.classList.remove('ativo');
+
+                if(adicionarProxima){
+                    // Mantém disciplina e subtítulo; limpa apenas os campos da questão.
+                    document.getElementById('editIndex').value = '-1';
+                    enunciadoCampo.value = '';
+                    ['op1','op2','op3','op4','op5'].forEach(id => document.getElementById(id).value = '');
+                    document.getElementById('corretaSelect').value = '0';
+                    document.getElementById('explicacaoInput').value = '';
+                    document.getElementById('formAdd').classList.remove('hidden');
+                    atualizarPreviewEnunciado();
+                    enunciadoCampo.focus();
+                    alert(index > -1 ? 'Questão atualizada. O formulário está pronto para cadastrar outra questão na mesma disciplina e tema.' : 'Questão salva! O formulário está pronto para a próxima questão na mesma disciplina e tema.');
+                }else{
+                    document.getElementById('formAdd').classList.add('hidden');
+                    resetForm();
+                }
+            };
+
+            const achada = buscarQuestaoRepetida(nova.materia, nova.enunciado, index);
+            const chaveAtual = normalizarTextoComparacao(nova.materia) + '||' + normalizarTextoComparacao(nova.enunciado);
+            if (achada && !(duplicadaAceitaManualmente && ultimaChaveDuplicadaAceita === chaveAtual)) {
+                abrirModalConfirmarDuplicada(achada, concluirGravacao);
+                return;
             }
 
-            // Atualiza primeiro o armazenamento local para não perder a questão se a rede cair.
-            localStorage.setItem('bancoEstudos', JSON.stringify(banco));
-            syncFirebase(banco);
-            listarDisciplinasUnicas();
-            carregarMenuMaterias();
-            atualizarContadores();
-
-            if(adicionarProxima){
-                // Mantém disciplina e subtítulo; limpa apenas os campos da questão.
-                document.getElementById('editIndex').value = '-1';
-                enunciadoCampo.value = '';
-                ['op1','op2','op3','op4','op5'].forEach(id => document.getElementById(id).value = '');
-                document.getElementById('corretaSelect').value = '0';
-                document.getElementById('explicacaoInput').value = '';
-                document.getElementById('formAdd').classList.remove('hidden');
-                atualizarPreviewEnunciado();
-                enunciadoCampo.focus();
-                alert(index > -1 ? 'Questão atualizada. O formulário está pronto para cadastrar outra questão na mesma disciplina e tema.' : 'Questão salva! O formulário está pronto para a próxima questão na mesma disciplina e tema.');
-            }else{
-                document.getElementById('formAdd').classList.add('hidden');
-                resetForm();
-            }
+            concluirGravacao();
         }
 
         function openScreen(id){
@@ -1908,6 +2263,31 @@ Fechar
                 style="background:#22c55e"
                 onclick="confirmarRenomeacao()">
                 Salvar
+            </button>
+        </div>
+    </div>
+</div>
+<div id="modalExportarTitulo" class="modal-overlay">
+    <div class="modal-card" style="width:92%;max-width:440px;">
+        <h3>📥 Baixar Questões</h3>
+        <p style="margin:12px 0 14px;color:#cbd5e1;font-size:15px;">
+            Escolha se deseja baixar apenas um título específico ou todas as questões:
+        </p>
+        <select id="selectTituloExportar" style="font-size:16px;"></select>
+        <div style="margin-top:12px;">
+            <button
+                type="button"
+                class="modal-btn"
+                style="background:#ef4444;color:white;"
+                onclick="fecharModalExportacao()">
+                Cancelar
+            </button>
+            <button
+                type="button"
+                class="modal-btn"
+                style="background:#eab308;color:#422006;"
+                onclick="confirmarExportacaoSelecionada()">
+                Baixar
             </button>
         </div>
     </div>
