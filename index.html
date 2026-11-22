@@ -136,6 +136,10 @@ let acaoConfirmada = "";
         .pratica-instrucao{color:#cbd5e1;margin:0 0 16px;}
         .pratica-pasta,.pratica-subpasta{display:flex;align-items:center;justify-content:flex-start;text-align:left;gap:14px;padding:16px;margin:10px 0;background:linear-gradient(135deg,rgba(30,64,175,.92),rgba(79,70,229,.9));border:1px solid rgba(147,197,253,.3);}
         .pratica-subpasta{background:linear-gradient(135deg,rgba(6,95,70,.92),rgba(13,148,136,.9));}
+        .disciplina-pasta{background:linear-gradient(135deg,rgba(146,64,14,.95),rgba(217,119,6,.92)) !important;border:1px solid rgba(253,224,71,.38) !important;box-shadow:0 6px 18px rgba(180,83,9,.28);}
+        .disciplina-pasta:hover{filter:brightness(1.06);}
+        .disciplina-subpasta{background:linear-gradient(135deg,rgba(112,26,117,.94),rgba(190,24,93,.9)) !important;border:1px solid rgba(244,114,182,.38) !important;box-shadow:0 6px 18px rgba(157,23,77,.26);}
+        .disciplina-subpasta:hover{filter:brightness(1.06);}
         .pratica-icone-pasta,.pratica-icone-subpasta{display:flex;align-items:center;justify-content:center;flex:0 0 44px;height:44px;border-radius:12px;background:rgba(255,255,255,.13);font-size:22px;}
         .pratica-pasta-texto{display:flex;flex:1;min-width:0;flex-direction:column;gap:5px;}
         .pratica-pasta-texto .materia-titulo{font-size:18px;overflow-wrap:anywhere;}
@@ -629,7 +633,7 @@ margin-top:10px;
                 localStorage.setItem('bancoEstudos', JSON.stringify(banco));
                 
                 atualizarContadores();
-                if(document.getElementById('disciplinas').classList.contains('active')) listarDisciplinasUnicas();
+                if(document.getElementById('disciplinas').classList.contains('active')) atualizarVisualizacaoDisciplinas();
                 if(document.getElementById('questoes').classList.contains('active')) carregarMenuMaterias();
                 console.log("Banco sincronizado via Firebase:", banco);
             });
@@ -966,7 +970,7 @@ margin-top:10px;
                 "bancoEstudos",
                 JSON.stringify(bancoLimpo)
             );
-            listarDisciplinasUnicas();
+            atualizarVisualizacaoDisciplinas();
             console.log("Firebase atualizado.");
         })
         .catch((erro) => {
@@ -1393,80 +1397,164 @@ document.getElementById('formAdd').classList.remove('hidden');
             if(id === 'disciplinas') listarDisciplinasUnicas();
         }
 
+        let materiaAtualGerenciamento = '';
+        let subtituloAtualGerenciamento = '';
+
+        function escaparHtmlSeguro(texto){
+            return (texto || '')
+                .toString()
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
+        }
+
+        // Camada 1 de Disciplinas: agrupa matérias iguais em pastas únicas (igual em Praticar)
         function listarDisciplinasUnicas(){
+            materiaAtualGerenciamento = '';
+            subtituloAtualGerenciamento = '';
             const banco = JSON.parse(localStorage.getItem('bancoEstudos') || '[]');
             const lista = document.getElementById('listaDisciplinas');
             lista.innerHTML = '';
 
-            // Cada combinação MATÉRIA + SUBTÍTULO é um grupo independente.
-            // Assim, questões com o mesmo título e subtítulo ficam juntas,
-            // enquanto subtítulos diferentes ficam em grupos separados.
-            const grupos = [];
-            const chaves = new Set();
-
+            const materias = new Map();
             banco.forEach(q => {
                 const materia = (q.materia || '').trim();
-                const subtitulo = (q.subtitulo || '').trim();
                 if(!materia) return;
-
-                const chave = materia.toLocaleLowerCase('pt-BR') + '||' + subtitulo.toLocaleLowerCase('pt-BR');
-                if(!chaves.has(chave)){
-                    chaves.add(chave);
-                    grupos.push({ materia, subtitulo });
+                const chave = materia.toLocaleLowerCase('pt-BR');
+                if(!materias.has(chave)){
+                    materias.set(chave, {
+                        materia,
+                        total: 0,
+                        subtitulos: new Set()
+                    });
                 }
+                const item = materias.get(chave);
+                item.total++;
+                item.subtitulos.add((q.subtitulo || '').trim().toLocaleLowerCase('pt-BR'));
             });
 
-            grupos.sort((a,b) => {
-                const materiaCmp = a.materia.localeCompare(b.materia, 'pt-BR');
-                if(materiaCmp !== 0) return materiaCmp;
+            const ordenadas = Array.from(materias.values()).sort((a,b) =>
+                a.materia.localeCompare(b.materia, 'pt-BR')
+            );
+
+            lista.innerHTML = `<h3 class="pratica-cabecalho">📚 Selecione uma disciplina</h3>`;
+            if(!ordenadas.length){
+                lista.innerHTML += `<div class="card pratica-vazio">Nenhuma disciplina cadastrada ainda. Toque no botão <strong>+</strong> para adicionar questões.</div>`;
+                return;
+            }
+
+            ordenadas.forEach(item => {
+                const qtdTemas = item.subtitulos.size;
+                const detalheTemas = qtdTemas > 1 ? ` • ${qtdTemas} tema(s)` : '';
+                lista.innerHTML += `
+                    <button class="btn-secundario pratica-pasta disciplina-pasta" onclick='abrirSubtitulosDisciplina(${JSON.stringify(item.materia)})'>
+                        <span class="pratica-icone-pasta"><i class="fas fa-folder"></i></span>
+                        <span class="pratica-pasta-texto">
+                            <span class="materia-titulo">${escaparHtmlSeguro(item.materia)}</span>
+                            <small>${item.total} questão(ões)${detalheTemas}</small>
+                        </span>
+                        <i class="fas fa-chevron-right pratica-seta"></i>
+                    </button>`;
+            });
+        }
+
+        // Camada 2 de Disciplinas: entra na pasta da matéria e mostra seus subtítulos/temas
+        function abrirSubtitulosDisciplina(materia){
+            materiaAtualGerenciamento = materia;
+            subtituloAtualGerenciamento = '';
+            const banco = JSON.parse(localStorage.getItem('bancoEstudos') || '[]');
+            const lista = document.getElementById('listaDisciplinas');
+
+            const questoesMateria = banco.filter(q =>
+                (q.materia || '').trim().toLocaleLowerCase('pt-BR') === materia.trim().toLocaleLowerCase('pt-BR')
+            );
+
+            if(!questoesMateria.length){
+                listarDisciplinasUnicas();
+                return;
+            }
+
+            const grupos = new Map();
+            questoesMateria.forEach(q => {
+                const subtitulo = (q.subtitulo || '').trim();
+                const chave = subtitulo.toLocaleLowerCase('pt-BR');
+                if(!grupos.has(chave)){
+                    grupos.set(chave, {
+                        materia: (q.materia || materia).trim(),
+                        subtitulo,
+                        total: 0
+                    });
+                }
+                grupos.get(chave).total++;
+            });
+
+            const ordenados = Array.from(grupos.values()).sort((a,b) => {
+                if(!a.subtitulo) return 1;
+                if(!b.subtitulo) return -1;
                 return a.subtitulo.localeCompare(b.subtitulo, 'pt-BR');
             });
 
-            grupos.forEach(grupo => {
+            lista.innerHTML = `
+                <button class="btn-secundario pratica-voltar" onclick="listarDisciplinasUnicas()">
+                    <i class="fas fa-arrow-left"></i> Todas as disciplinas
+                </button>
+                <h3 class="pratica-cabecalho"><i class="fas fa-folder-open"></i> ${escaparHtmlSeguro(materia)}</h3>
+                <p class="pratica-instrucao">Selecione um tema para ver, editar ou gerenciar as questões.</p>`;
+
+            ordenados.forEach(grupo => {
                 const materiaJS = JSON.stringify(grupo.materia);
                 const subtituloJS = JSON.stringify(grupo.subtitulo);
-                const subtituloHtml = grupo.subtitulo
-                    ? `<span class="materia-subtitulo">${grupo.subtitulo}</span>`
-                    : '';
+                const nomeTema = grupo.subtitulo ? escaparHtmlSeguro(grupo.subtitulo) : 'Sem subtítulo';
 
                 lista.innerHTML += `
                 <div class="card">
-                    <button class="btn-secundario materia-com-subtitulo"
+                    <button class="btn-secundario pratica-subpasta disciplina-subpasta" style="margin-top:0;"
                         onclick='exibirQuestoesDoGrupo(${materiaJS}, ${subtituloJS})'>
-                        <span class="materia-titulo">${grupo.materia}</span>
-                        ${subtituloHtml}
+                        <span class="pratica-icone-subpasta"><i class="fas fa-folder-open"></i></span>
+                        <span class="pratica-pasta-texto">
+                            <span class="materia-titulo">${nomeTema}</span>
+                            <small>${grupo.total} questão(ões)</small>
+                        </span>
+                        <i class="fas fa-chevron-right pratica-seta"></i>
                     </button>
 
-                    <button class="btn-edit"
-                        onclick='renomearGrupo(${materiaJS}, ${subtituloJS})'>
-                        <i class="fas fa-edit"></i>
-                        Renomear
-                    </button>
+                    <div style="margin-top:10px;">
+                        <button class="btn-edit"
+                            onclick='renomearGrupo(${materiaJS}, ${subtituloJS})'>
+                            <i class="fas fa-edit"></i>
+                            Renomear
+                        </button>
 
-                    <button class="btn-del"
-                        onclick='apagarGrupo(${materiaJS}, ${subtituloJS})'>
-                        <i class="fas fa-trash"></i>
-                        Apagar
-                    </button>
+                        <button class="btn-del"
+                            onclick='apagarGrupo(${materiaJS}, ${subtituloJS})'>
+                            <i class="fas fa-trash"></i>
+                            Apagar
+                        </button>
+                    </div>
                 </div>`;
             });
         }
 
+        // Camada 3 de Disciplinas: exibe as questões dentro do tema selecionado
         function exibirQuestoesDoGrupo(materia, subtitulo){
+            materiaAtualGerenciamento = materia;
+            subtituloAtualGerenciamento = subtitulo || '';
             const banco = JSON.parse(localStorage.getItem('bancoEstudos') || '[]');
             const lista = document.getElementById('listaDisciplinas');
             const grupo = banco.filter(q =>
-                (q.materia || '').trim() === materia &&
-                (q.subtitulo || '').trim() === subtitulo
+                (q.materia || '').trim().toLocaleLowerCase('pt-BR') === materia.trim().toLocaleLowerCase('pt-BR') &&
+                (q.subtitulo || '').trim().toLocaleLowerCase('pt-BR') === (subtitulo || '').trim().toLocaleLowerCase('pt-BR')
             );
 
             lista.innerHTML = `
-                <button class="btn-secundario" onclick="listarDisciplinasUnicas()">
-                    <i class="fas fa-arrow-left"></i> Voltar
+                <button class="btn-secundario pratica-voltar" onclick='abrirSubtitulosDisciplina(${JSON.stringify(materia)})'>
+                    <i class="fas fa-arrow-left"></i> Voltar para ${escaparHtmlSeguro(materia)}
                 </button>
                 <div class="card" style="text-align:center;">
-                    <h3>${materia}</h3>
-                    ${subtitulo ? `<div class="materia-subtitulo" style="font-size:17px;margin-top:6px;">${subtitulo}</div>` : ''}
+                    <h3>${escaparHtmlSeguro(materia)}</h3>
+                    ${subtitulo ? `<div class="materia-subtitulo" style="font-size:17px;margin-top:6px;">${escaparHtmlSeguro(subtitulo)}</div>` : ''}
                 </div>`;
 
             grupo.forEach(q => {
@@ -1892,9 +1980,10 @@ atualizarContadores();
                 }
             });
 
+            localStorage.setItem('bancoEstudos', JSON.stringify(banco));
             syncFirebase(banco);
             fecharModalRenomear();
-            listarDisciplinasUnicas();
+            abrirSubtitulosDisciplina(novoNome);
         }
 
         function apagarGrupo(materia, subtitulo){
@@ -1906,14 +1995,25 @@ atualizarContadores();
             );
         }
 
+        function atualizarVisualizacaoDisciplinas(){
+            if(materiaAtualGerenciamento && subtituloAtualGerenciamento !== '' && document.querySelector('#listaDisciplinas .alternativa-exibida, #listaDisciplinas h3')){
+                exibirQuestoesDoGrupo(materiaAtualGerenciamento, subtituloAtualGerenciamento);
+            } else if(materiaAtualGerenciamento){
+                abrirSubtitulosDisciplina(materiaAtualGerenciamento);
+            } else {
+                listarDisciplinasUnicas();
+            }
+        }
+
         function executarApagarGrupo(materia, subtitulo){
             let banco = JSON.parse(localStorage.getItem('bancoEstudos') || '[]');
             banco = banco.filter(q => !(
                 (q.materia || '').trim() === materia &&
                 (q.subtitulo || '').trim() === (subtitulo || '')
             ));
+            localStorage.setItem('bancoEstudos', JSON.stringify(banco));
             syncFirebase(banco);
-            listarDisciplinasUnicas();
+            abrirSubtitulosDisciplina(materia);
         }
 
         // Mantém compatibilidade com a função antiga.
