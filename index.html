@@ -546,7 +546,7 @@ margin-top:10px;
     <button type="button" onclick="inserirSimbolo('μ')">μ</button>
     <button type="button" onclick="inserirSimbolo('σ')">σ</button>
     <button type="button" onclick="inserirSimbolo('ρ')">ρ</button>
-</div>
+</div> <!--código oculto-->
 
 <textarea id="enunciadoInput" placeholder="Enunciado" oninput="atualizarPreviewEnunciado(); verificarDuplicidadeEmTempoReal();"></textarea>
                 <div id="alertaDuplicadaLive" class="alerta-duplicada-box" role="alert">
@@ -2057,6 +2057,21 @@ margin-top:15px;
 </tr>
 
 <tr>
+<td><code>$\textit{palavra}$</code></td>
+<td>itálico</td>
+</tr>
+
+<tr>
+<td><code>$\textcolor{black}{palavra}$</code></td>
+<td>negrito</td>
+</tr>
+
+<tr>
+<td><code>$\textcolor{red}{palavra}$</code></td>
+<td>vermelho</td>
+</tr>
+
+<tr>
 <td><code>$x_n$</code></td>
 <td>$x_n$</td>
 </tr>
@@ -2327,7 +2342,7 @@ margin-top:15px;
 <td><code>$A^T$</code></td>
 <td class="latex-render">$A^T$</td>
 </tr>
-</table>
+</table> <!--código oculto-->
 
 <button class="btn"
 onclick="fecharGuiaLatex()">
